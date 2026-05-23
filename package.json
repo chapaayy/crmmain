@@ -1,0 +1,26 @@
+{
+  "name": "polybags-crm",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run prisma:generate --workspace @crm/backend && npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev:backend": "npm run start:dev --workspace @crm/backend",
+    "dev:frontend": "npm run dev --workspace @crm/frontend",
+    "prisma:generate": "npm run prisma:generate --workspace @crm/backend",
+    "prisma:migrate": "npm run prisma:migrate --workspace @crm/backend",
+    "prisma:migrate:dev": "npm run prisma:migrate:dev --workspace @crm/backend",
+    "prisma:migrate:status": "npm run prisma:migrate:status --workspace @crm/backend",
+    "prisma:validate": "npm run prisma:validate --workspace @crm/backend",
+    "prisma:seed": "npm run prisma:seed --workspace @crm/backend",
+    "db:reset": "npm run db:reset --workspace @crm/backend"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

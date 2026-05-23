@@ -1,0 +1,1024 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleCode {
+  SUPER_ADMIN
+  ADMIN
+  SALES_MANAGER
+  WAREHOUSE_MANAGER
+  ACCOUNTANT
+  VIEWER
+}
+
+enum CustomerStatus {
+  LEAD
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum CustomerType {
+  INDIVIDUAL
+  COMPANY
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  PROPOSAL
+  WON
+  LOST
+}
+
+enum BagType {
+  POLYPROPYLENE_BAG
+  BIG_BAG
+  LINER_BAG
+  TRANSPARENT_BAG
+  HANDLED_BAG
+  CUSTOM_BAG
+}
+
+enum BagTopType {
+  OPEN_TOP
+  VALVE
+  SKIRT
+  DUFFLE
+  CUSTOM
+}
+
+enum BagBottomType {
+  FLAT
+  BLOCK
+  DISCHARGE_SPOUT
+  CLOSED
+  CUSTOM
+}
+
+enum OrderStatus {
+  DRAFT
+  NEW
+  MANAGER_PROCESSING
+  WAITING_PAYMENT
+  PAID
+  RESERVED
+  PICKING
+  SHIPPED
+  DELIVERED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum DiscountType {
+  NONE
+  PERCENT
+  FIXED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+  OVERPAID
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CARD
+  ONLINE
+  OTHER
+}
+
+enum StockMovementType {
+  RESERVATION
+  RECEIPT
+  SALE
+  RELEASE_RESERVATION
+  SHIPMENT
+  RETURN
+  ADJUSTMENT
+  TRANSFER
+  WRITEOFF
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskRelatedType {
+  CUSTOMER
+  LEAD
+  ORDER
+  PRODUCT
+}
+
+enum DocumentType {
+  INVOICE
+  COMMERCIAL_OFFER
+  DELIVERY_NOTE
+  ACT
+  CONTRACT
+}
+
+enum TimelineEventType {
+  CREATED
+  UPDATED
+  STATUS_CHANGED
+  COMMENTED
+  FILE_UPLOADED
+  PAYMENT_RECEIVED
+  STOCK_MOVED
+  TASK_COMPLETED
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  RESTORE
+  LOGIN
+  LOGOUT
+  EXPORT
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  firstName    String?
+  lastName     String?
+  phone        String?
+  primaryRole  RoleCode  @default(VIEWER)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdById  String?
+  updatedById  String?
+  createdBy    User?     @relation("UserCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?     @relation("UserUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  createdUsers            User[]               @relation("UserCreatedBy")
+  updatedUsers            User[]               @relation("UserUpdatedBy")
+  roles                   UserRole[]           @relation("UserRoleUser")
+  assignedUserRoles       UserRole[]           @relation("UserRoleAssignedBy")
+  createdRoles            Role[]               @relation("RoleCreatedBy")
+  updatedRoles            Role[]               @relation("RoleUpdatedBy")
+  createdPermissions      Permission[]         @relation("PermissionCreatedBy")
+  updatedPermissions      Permission[]         @relation("PermissionUpdatedBy")
+  createdRolePermissions  RolePermission[]     @relation("RolePermissionCreatedBy")
+  refreshTokens           RefreshToken[]
+  ownedCustomers          Customer[]           @relation("CustomerOwner")
+  createdCustomers        Customer[]           @relation("CustomerCreatedBy")
+  updatedCustomers        Customer[]           @relation("CustomerUpdatedBy")
+  createdContacts         CustomerContact[]    @relation("CustomerContactCreatedBy")
+  updatedContacts         CustomerContact[]    @relation("CustomerContactUpdatedBy")
+  assignedLeads           Lead[]               @relation("LeadAssignedTo")
+  createdLeads            Lead[]               @relation("LeadCreatedBy")
+  updatedLeads            Lead[]               @relation("LeadUpdatedBy")
+  createdProductCategories ProductCategory[]    @relation("ProductCategoryCreatedBy")
+  updatedProductCategories ProductCategory[]    @relation("ProductCategoryUpdatedBy")
+  createdProducts         Product[]            @relation("ProductCreatedBy")
+  updatedProducts         Product[]            @relation("ProductUpdatedBy")
+  createdProductVariants  ProductVariant[]     @relation("ProductVariantCreatedBy")
+  updatedProductVariants  ProductVariant[]     @relation("ProductVariantUpdatedBy")
+  managedWarehouses       Warehouse[]          @relation("WarehouseManager")
+  createdWarehouses       Warehouse[]          @relation("WarehouseCreatedBy")
+  updatedWarehouses       Warehouse[]          @relation("WarehouseUpdatedBy")
+  createdStockItems       StockItem[]          @relation("StockItemCreatedBy")
+  updatedStockItems       StockItem[]          @relation("StockItemUpdatedBy")
+  createdStockMovements   StockMovement[]      @relation("StockMovementCreatedBy")
+  updatedStockMovements   StockMovement[]      @relation("StockMovementUpdatedBy")
+  managedOrders           Order[]              @relation("OrderManager")
+  createdOrders           Order[]              @relation("OrderCreatedBy")
+  updatedOrders           Order[]              @relation("OrderUpdatedBy")
+  orderStatusChanges      OrderStatusHistory[] @relation("OrderStatusChangedBy")
+  createdPayments         Payment[]            @relation("PaymentCreatedBy")
+  updatedPayments         Payment[]            @relation("PaymentUpdatedBy")
+  createdDocuments        Document[]           @relation("DocumentCreatedBy")
+  updatedDocuments        Document[]           @relation("DocumentUpdatedBy")
+  assignedTasks           Task[]               @relation("TaskAssignedTo")
+  createdTasks            Task[]               @relation("TaskCreatedBy")
+  updatedTasks            Task[]               @relation("TaskUpdatedBy")
+  comments                Comment[]            @relation("CommentAuthor")
+  timelineEvents          TimelineEvent[]      @relation("TimelineEventActor")
+  notifications           Notification[]
+  auditLogs               AuditLog[]
+  createdFileAssets       FileAsset[]          @relation("FileAssetCreatedBy")
+  updatedFileAssets       FileAsset[]          @relation("FileAssetUpdatedBy")
+  createdSettings         Setting[]            @relation("SettingCreatedBy")
+  updatedSettings         Setting[]            @relation("SettingUpdatedBy")
+
+  @@index([primaryRole])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  code        RoleCode         @unique
+  name        String           @unique
+  description String?
+  isSystem    Boolean          @default(false)
+  createdById String?
+  updatedById String?
+  createdBy   User?            @relation("RoleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?            @relation("RoleUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@index([deletedAt])
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  name        String
+  resource    String
+  action      String
+  description String?
+  createdById String?
+  updatedById String?
+  createdBy   User?            @relation("PermissionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?            @relation("PermissionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
+  roles       RolePermission[]
+
+  @@index([resource])
+  @@index([action])
+  @@index([deletedAt])
+}
+
+model UserRole {
+  id           String    @id @default(cuid())
+  userId       String
+  roleId       String
+  assignedById String?
+  user         User      @relation("UserRoleUser", fields: [userId], references: [id], onDelete: Cascade)
+  role         Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignedBy   User?     @relation("UserRoleAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@index([assignedById])
+  @@index([deletedAt])
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  permissionId String
+  createdById  String?
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdBy    User?      @relation("RolePermissionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  deletedAt    DateTime?
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@index([createdById])
+  @@index([deletedAt])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([userId])
+  @@index([deletedAt])
+}
+
+model Customer {
+  id          String            @id @default(cuid())
+  code        String?           @unique
+  type        CustomerType      @default(COMPANY)
+  name        String
+  companyName String?
+  inn         String?
+  kpp         String?
+  ogrn        String?
+  legalAddress String?
+  deliveryAddress String?
+  phone       String?
+  email       String?
+  messengers  Json?
+  source      String?
+  segment     String?
+  website     String?
+  address     String?
+  notes       String?
+  status      CustomerStatus    @default(LEAD)
+  ownerId     String?
+  createdById String?
+  updatedById String?
+  owner       User?             @relation("CustomerOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdBy   User?             @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?             @relation("CustomerUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  contacts    CustomerContact[]
+  leads       Lead[]
+  orders      Order[]
+  documents   Document[]
+  tasks       Task[]
+  comments    Comment[]
+  events      TimelineEvent[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  deletedAt   DateTime?
+
+  @@index([status])
+  @@index([type])
+  @@index([inn])
+  @@index([phone])
+  @@index([email])
+  @@index([source])
+  @@index([segment])
+  @@index([ownerId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([deletedAt])
+}
+
+model CustomerContact {
+  id          String    @id @default(cuid())
+  customerId  String
+  firstName   String?
+  lastName    String?
+  fullName    String
+  position    String?
+  phone       String?
+  email       String?
+  isPrimary   Boolean   @default(false)
+  notes       String?
+  createdById String?
+  updatedById String?
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdBy   User?     @relation("CustomerContactCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?     @relation("CustomerContactUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  leads       Lead[]
+  orders      Order[]   @relation("OrderContact")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@index([customerId])
+  @@index([email])
+  @@index([phone])
+  @@index([deletedAt])
+}
+
+model Lead {
+  id             String           @id @default(cuid())
+  number         String           @unique
+  title          String
+  phone          String?
+  email          String?
+  status         LeadStatus       @default(NEW)
+  source         String?
+  interestedProducts Json?
+  customerId     String?
+  contactId      String?
+  assignedToId   String?
+  estimatedValue Decimal?         @db.Decimal(14, 2)
+  currency       String           @default("RUB")
+  expectedCloseAt DateTime?
+  nextContactAt  DateTime?
+  convertedAt    DateTime?
+  lostReason     String?
+  comment        String?
+  notes          String?
+  createdById    String?
+  updatedById    String?
+  customer       Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  contact        CustomerContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  assignedTo     User?            @relation("LeadAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdBy      User?            @relation("LeadCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy      User?            @relation("LeadUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  orders         Order[]
+  documents      Document[]
+  tasks          Task[]
+  comments       Comment[]
+  events         TimelineEvent[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  deletedAt      DateTime?
+
+  @@index([status])
+  @@index([source])
+  @@index([phone])
+  @@index([email])
+  @@index([customerId])
+  @@index([contactId])
+  @@index([assignedToId])
+  @@index([nextContactAt])
+  @@index([deletedAt])
+}
+
+model ProductCategory {
+  id          String            @id @default(cuid())
+  name        String
+  slug        String            @unique
+  description String?
+  parentId    String?
+  createdById String?
+  updatedById String?
+  parent      ProductCategory?  @relation("ProductCategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    ProductCategory[] @relation("ProductCategoryTree")
+  createdBy   User?             @relation("ProductCategoryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?             @relation("ProductCategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  products    Product[]
+  variants    ProductVariant[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  deletedAt   DateTime?
+
+  @@index([parentId])
+  @@index([deletedAt])
+}
+
+model Product {
+  id                     String           @id @default(cuid())
+  sku                    String           @unique
+  name                   String
+  categoryId             String
+  description            String?
+  size                   String?
+  density                String?
+  color                  String?
+  material               String           @default("polypropylene")
+  bagType                BagType          @default(POLYPROPYLENE_BAG)
+  weight                 Decimal?         @db.Decimal(12, 3)
+  capacity               String?
+  hasLiner               Boolean          @default(false)
+  hasHandles             Boolean          @default(false)
+  topType                BagTopType?
+  bottomType             BagBottomType?
+  minOrderQty            Int              @default(1)
+  packageQty             Int?
+  purchasePrice          Decimal?         @db.Decimal(14, 2)
+  retailPrice            Decimal?         @db.Decimal(14, 2)
+  wholesalePrice         Decimal?         @db.Decimal(14, 2)
+  isCustomOrderAvailable Boolean          @default(false)
+  isActive               Boolean          @default(true)
+  createdById            String?
+  updatedById            String?
+  category               ProductCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdBy              User?            @relation("ProductCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy              User?            @relation("ProductUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  variants               ProductVariant[]
+  stockItems             StockItem[]
+  stockMovements         StockMovement[]
+  orderItems             OrderItem[]
+  tasks                  Task[]
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+  deletedAt              DateTime?
+
+  @@index([categoryId])
+  @@index([bagType])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+model ProductVariant {
+  id                     String          @id @default(cuid())
+  productId              String
+  sku                    String          @unique
+  name                   String
+  categoryId             String
+  description            String?
+  size                   String?
+  density                String?
+  color                  String?
+  material               String          @default("polypropylene")
+  bagType                BagType         @default(POLYPROPYLENE_BAG)
+  weight                 Decimal?        @db.Decimal(12, 3)
+  capacity               String?
+  hasLiner               Boolean         @default(false)
+  hasHandles             Boolean         @default(false)
+  topType                BagTopType?
+  bottomType             BagBottomType?
+  minOrderQty            Int             @default(1)
+  packageQty             Int?
+  purchasePrice          Decimal?        @db.Decimal(14, 2)
+  retailPrice            Decimal?        @db.Decimal(14, 2)
+  wholesalePrice         Decimal?        @db.Decimal(14, 2)
+  isCustomOrderAvailable Boolean         @default(false)
+  isActive               Boolean         @default(true)
+  createdById            String?
+  updatedById            String?
+  product                Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category               ProductCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdBy              User?           @relation("ProductVariantCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy              User?           @relation("ProductVariantUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  stockItems             StockItem[]
+  stockMovements         StockMovement[]
+  orderItems             OrderItem[]
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  deletedAt              DateTime?
+
+  @@index([productId])
+  @@index([categoryId])
+  @@index([bagType])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+model Warehouse {
+  id             String          @id @default(cuid())
+  code           String          @unique
+  name           String
+  address        String?
+  isActive       Boolean         @default(true)
+  managerId      String?
+  createdById    String?
+  updatedById    String?
+  manager        User?           @relation("WarehouseManager", fields: [managerId], references: [id], onDelete: SetNull)
+  createdBy      User?           @relation("WarehouseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy      User?           @relation("WarehouseUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  stockItems     StockItem[]
+  movements      StockMovement[] @relation("StockMovementWarehouse")
+  outgoingMoves  StockMovement[] @relation("StockMovementFromWarehouse")
+  incomingMoves  StockMovement[] @relation("StockMovementToWarehouse")
+  orders         Order[]         @relation("OrderWarehouse")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
+
+  @@index([managerId])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+model StockItem {
+  id               String          @id @default(cuid())
+  warehouseId      String
+  productId        String
+  variantId        String?
+  quantity         Decimal         @default(0) @db.Decimal(14, 3)
+  reservedQuantity Decimal         @default(0) @db.Decimal(14, 3)
+  unit             String          @default("pcs")
+  createdById      String?
+  updatedById      String?
+  warehouse        Warehouse       @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  product          Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant          ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  createdBy        User?           @relation("StockItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy        User?           @relation("StockItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  movements        StockMovement[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  deletedAt        DateTime?
+
+  @@unique([warehouseId, productId, variantId])
+  @@index([warehouseId])
+  @@index([productId])
+  @@index([variantId])
+  @@index([deletedAt])
+}
+
+model StockMovement {
+  id              String             @id @default(cuid())
+  type            StockMovementType
+  warehouseId     String
+  fromWarehouseId String?
+  toWarehouseId   String?
+  stockItemId     String?
+  productId       String
+  variantId       String?
+  orderId         String?
+  quantity        Decimal            @db.Decimal(14, 3)
+  unit            String             @default("pcs")
+  balanceBefore   Decimal?           @db.Decimal(14, 3)
+  balanceAfter    Decimal?           @db.Decimal(14, 3)
+  reference       String?
+  note            String?
+  createdById     String?
+  updatedById     String?
+  warehouse       Warehouse          @relation("StockMovementWarehouse", fields: [warehouseId], references: [id], onDelete: Restrict)
+  fromWarehouse   Warehouse?         @relation("StockMovementFromWarehouse", fields: [fromWarehouseId], references: [id], onDelete: SetNull)
+  toWarehouse     Warehouse?         @relation("StockMovementToWarehouse", fields: [toWarehouseId], references: [id], onDelete: SetNull)
+  stockItem       StockItem?         @relation(fields: [stockItemId], references: [id], onDelete: SetNull)
+  product         Product            @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant         ProductVariant?    @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  order           Order?             @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  createdBy       User?              @relation("StockMovementCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy       User?              @relation("StockMovementUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  deletedAt       DateTime?
+
+  @@index([type])
+  @@index([warehouseId])
+  @@index([fromWarehouseId])
+  @@index([toWarehouseId])
+  @@index([stockItemId])
+  @@index([productId])
+  @@index([variantId])
+  @@index([orderId])
+  @@index([deletedAt])
+}
+
+model Order {
+  id            String               @id @default(cuid())
+  number        String               @unique
+  status        OrderStatus          @default(DRAFT)
+  customerId    String
+  contactId     String?
+  leadId        String?
+  managerId     String?
+  warehouseId   String?
+  currency      String               @default("RUB")
+  subtotal      Decimal              @default(0) @db.Decimal(14, 2)
+  discountType  DiscountType         @default(NONE)
+  discountValue Decimal              @default(0) @db.Decimal(14, 2)
+  discount      Decimal              @default(0) @db.Decimal(14, 2)
+  taxRate       Decimal              @default(0) @db.Decimal(5, 2)
+  tax           Decimal              @default(0) @db.Decimal(14, 2)
+  total         Decimal              @default(0) @db.Decimal(14, 2)
+  paidAmount    Decimal              @default(0) @db.Decimal(14, 2)
+  paymentStatus PaymentStatus         @default(UNPAID)
+  dueDate       DateTime?
+  confirmedAt   DateTime?
+  shippedAt     DateTime?
+  deliveredAt   DateTime?
+  notes         String?
+  createdById   String?
+  updatedById   String?
+  customer      Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  contact       CustomerContact?     @relation("OrderContact", fields: [contactId], references: [id], onDelete: SetNull)
+  lead          Lead?                @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  manager       User?                @relation("OrderManager", fields: [managerId], references: [id], onDelete: SetNull)
+  warehouse     Warehouse?           @relation("OrderWarehouse", fields: [warehouseId], references: [id], onDelete: SetNull)
+  createdBy     User?                @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy     User?                @relation("OrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  items         OrderItem[]
+  statusHistory OrderStatusHistory[]
+  payments      Payment[]
+  documents     Document[]
+  tasks         Task[]
+  comments      Comment[]
+  events        TimelineEvent[]
+  stockMovements StockMovement[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  deletedAt     DateTime?
+
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([customerId])
+  @@index([contactId])
+  @@index([leadId])
+  @@index([managerId])
+  @@index([warehouseId])
+  @@index([deletedAt])
+}
+
+model OrderItem {
+  id          String          @id @default(cuid())
+  orderId     String
+  productId   String
+  variantId   String?
+  sku         String
+  name        String
+  quantity    Decimal         @db.Decimal(14, 3)
+  unit        String           @default("pcs")
+  unitPrice   Decimal          @db.Decimal(14, 2)
+  discount    Decimal          @default(0) @db.Decimal(14, 2)
+  total       Decimal          @db.Decimal(14, 2)
+  notes       String?
+  order       Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant     ProductVariant?  @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([variantId])
+  @@index([deletedAt])
+}
+
+model OrderStatusHistory {
+  id             String       @id @default(cuid())
+  orderId        String
+  previousStatus OrderStatus?
+  status         OrderStatus
+  comment        String?
+  changedById    String?
+  order          Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  changedBy      User?        @relation("OrderStatusChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  @@index([orderId])
+  @@index([status])
+  @@index([changedById])
+  @@index([deletedAt])
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  orderId     String
+  status      PaymentStatus @default(PAID)
+  method      PaymentMethod @default(BANK_TRANSFER)
+  amount      Decimal       @db.Decimal(14, 2)
+  currency    String        @default("RUB")
+  dueDate     DateTime?
+  paidAt      DateTime?
+  externalId  String?
+  note        String?
+  createdById String?
+  updatedById String?
+  order       Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdBy   User?         @relation("PaymentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?         @relation("PaymentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  documents   Document[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+
+  @@index([orderId])
+  @@index([status])
+  @@index([paidAt])
+  @@index([deletedAt])
+}
+
+model Document {
+  id          String        @id @default(cuid())
+  type        DocumentType
+  number      String?
+  title       String
+  status      String?
+  orderId     String?
+  customerId  String?
+  leadId      String?
+  paymentId   String?
+  fileAssetId String?
+  issuedAt    DateTime?
+  expiresAt   DateTime?
+  metadata    Json?
+  createdById String?
+  updatedById String?
+  order       Order?        @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  customer    Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  lead        Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  payment     Payment?      @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  fileAsset   FileAsset?    @relation(fields: [fileAssetId], references: [id], onDelete: SetNull)
+  createdBy   User?         @relation("DocumentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?         @relation("DocumentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  comments    Comment[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+
+  @@index([type])
+  @@index([number])
+  @@index([orderId])
+  @@index([customerId])
+  @@index([leadId])
+  @@index([paymentId])
+  @@index([fileAssetId])
+  @@index([deletedAt])
+}
+
+model Task {
+  id           String       @id @default(cuid())
+  title        String
+  description  String?
+  status       TaskStatus   @default(TODO)
+  priority     TaskPriority @default(MEDIUM)
+  dueAt        DateTime?    @map("dueDate")
+  dueSoonNotifiedAt DateTime?
+  relatedType  TaskRelatedType?
+  relatedId    String?
+  completedAt  DateTime?
+  assignedToId String?
+  customerId   String?
+  leadId       String?
+  orderId      String?
+  productId    String?
+  createdById  String?
+  updatedById  String?
+  assignedTo   User?        @relation("TaskAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  customer     Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  lead         Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  order        Order?       @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  product      Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+  createdBy    User?        @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?        @relation("TaskUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  comments     Comment[]
+  events       TimelineEvent[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?
+
+  @@index([status])
+  @@index([priority])
+  @@index([assignedToId])
+  @@index([createdById])
+  @@index([relatedType, relatedId])
+  @@index([customerId])
+  @@index([leadId])
+  @@index([orderId])
+  @@index([productId])
+  @@index([dueAt])
+  @@index([dueSoonNotifiedAt])
+  @@index([deletedAt])
+}
+
+model Comment {
+  id         String    @id @default(cuid())
+  body       String
+  authorId   String
+  customerId String?
+  leadId     String?
+  orderId    String?
+  taskId     String?
+  documentId String?
+  author     User      @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  lead       Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  order      Order?    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  task       Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  document   Document? @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  @@index([authorId])
+  @@index([customerId])
+  @@index([leadId])
+  @@index([orderId])
+  @@index([taskId])
+  @@index([documentId])
+  @@index([deletedAt])
+}
+
+model TimelineEvent {
+  id          String            @id @default(cuid())
+  type        TimelineEventType
+  title       String
+  description String?
+  payload     Json?
+  occurredAt  DateTime          @default(now())
+  actorId     String?
+  customerId  String?
+  leadId      String?
+  orderId     String?
+  taskId      String?
+  actor       User?             @relation("TimelineEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+  customer    Customer?         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  lead        Lead?             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  order       Order?            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  task        Task?             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  deletedAt   DateTime?
+
+  @@index([type])
+  @@index([actorId])
+  @@index([customerId])
+  @@index([leadId])
+  @@index([orderId])
+  @@index([taskId])
+  @@index([occurredAt])
+  @@index([deletedAt])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType @default(INFO)
+  title     String
+  body      String?
+  data      Json?
+  readAt    DateTime?
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  deletedAt DateTime?
+
+  @@index([userId])
+  @@index([type])
+  @@index([readAt])
+  @@index([deletedAt])
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  actorId    String?
+  action     AuditAction
+  entityType String
+  entityId   String?
+  before     Json?
+  after      Json?
+  ipAddress  String?
+  userAgent  String?
+  actor      User?       @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  deletedAt  DateTime?
+
+  @@index([actorId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model FileAsset {
+  id           String     @id @default(cuid())
+  key          String     @unique
+  originalName String
+  mimeType     String
+  size         Int
+  path         String
+  url          String?
+  checksum     String?
+  metadata     Json?
+  createdById  String?
+  updatedById  String?
+  createdBy    User?      @relation("FileAssetCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?      @relation("FileAssetUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  documents    Document[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  deletedAt    DateTime?
+
+  @@index([mimeType])
+  @@index([createdById])
+  @@index([deletedAt])
+}
+
+model Setting {
+  id          String    @id @default(cuid())
+  namespace   String    @default("global")
+  key         String
+  value       Json
+  description String?
+  isPublic    Boolean   @default(false)
+  createdById String?
+  updatedById String?
+  createdBy   User?     @relation("SettingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?     @relation("SettingUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([namespace, key])
+  @@index([isPublic])
+  @@index([deletedAt])
+}
