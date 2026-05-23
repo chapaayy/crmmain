@@ -40,8 +40,8 @@ ENV NEXT_PUBLIC_ADMIN_URL=$NEXT_PUBLIC_ADMIN_URL
 ENV CRM_DOMAIN=$CRM_DOMAIN
 ENV ADMIN_DOMAIN=$ADMIN_DOMAIN
 ENV API_DOMAIN=$API_DOMAIN
-COPY --from=builder /app/apps/frontend/public ./apps/frontend/public
 COPY --from=builder /app/apps/frontend/.next/standalone ./
-COPY --from=builder /app/apps/frontend/.next/static ./apps/frontend/.next/static
+COPY --from=builder /app/apps/frontend/public ./public
+COPY --from=builder /app/apps/frontend/.next/static ./.next/static
 EXPOSE 3000
-CMD ["node", "apps/frontend/server.js"]
+CMD ["node", "server.js"]
