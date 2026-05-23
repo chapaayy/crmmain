@@ -14,7 +14,7 @@
     "test:unit": "tsx --test \"src/**/*.spec.ts\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate deploy",
+    "prisma:migrate": "prisma db push",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:status": "prisma migrate status",
     "prisma:validate": "prisma validate",

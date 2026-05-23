@@ -51,7 +51,7 @@ Login with the seeded super admin from `.env`:
 - Email: `SUPER_ADMIN_EMAIL`
 - Password: `SUPER_ADMIN_PASSWORD`
 
-The production compose file also runs Prisma migrations through the one-shot `migrate` service before the backend starts. The explicit `prisma:migrate` command above is safe to rerun and useful for quickstart verification. Seed is intentionally manual so production restarts do not rewrite demo/admin data.
+The production compose file also syncs the Prisma schema through the one-shot `migrate` service before the backend starts. The explicit `prisma:migrate` command above is safe to rerun and useful for quickstart verification. Seed is intentionally manual so production restarts do not rewrite demo/admin data.
 
 For direct local port access while still using the production images:
 

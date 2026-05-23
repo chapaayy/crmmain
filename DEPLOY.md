@@ -51,7 +51,7 @@ Caddy obtains and renews HTTPS certificates automatically. Ports `80` and `443` 
 docker compose up -d --build
 ```
 
-The `migrate` service runs `prisma migrate deploy` and must complete successfully before `backend` starts.
+The `migrate` service runs `prisma db push` and must complete successfully before `backend` starts. The `prisma:deploy` script is reserved for future SQL migration files.
 
 Run seed once after first deploy:
 
