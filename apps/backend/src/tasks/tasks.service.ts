@@ -50,8 +50,7 @@ const taskSelect = {
   lead: {
     select: {
       id: true,
-      title: true,
-      name: true
+      title: true
     }
   },
   order: {

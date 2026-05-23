@@ -10,6 +10,7 @@ import { CreateDocumentDto, GenerateOrderDocumentDto } from "./dto/document.dto"
 import { DocumentQueryDto } from "./dto/document-query.dto";
 
 type DbClient = PrismaService | Prisma.TransactionClient;
+type GeneratedOrderDocumentType = Extract<DocumentType, "INVOICE" | "COMMERCIAL_OFFER">;
 
 const customerSelect = {
   id: true,
@@ -268,7 +269,7 @@ export class DocumentsService {
     };
   }
 
-  private async generateOrderDocument(orderId: string, type: DocumentType.INVOICE | DocumentType.COMMERCIAL_OFFER, dto: GenerateOrderDocumentDto, actorId: string) {
+  private async generateOrderDocument(orderId: string, type: GeneratedOrderDocumentType, dto: GenerateOrderDocumentDto, actorId: string) {
     const result = await this.prisma.$transaction(async (tx) => {
       const order = await this.requireOrderForDocument(tx, orderId);
       const number = await this.nextDocumentNumber(tx, type);

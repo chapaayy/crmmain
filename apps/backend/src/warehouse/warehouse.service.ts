@@ -151,6 +151,14 @@ interface OrderStockBalance {
   shipped: number;
 }
 
+const stockLockedOrderStatuses: OrderStatus[] = [
+  OrderStatus.SHIPPED,
+  OrderStatus.DELIVERED,
+  OrderStatus.COMPLETED,
+  OrderStatus.CANCELLED,
+  OrderStatus.REFUNDED
+];
+
 @Injectable()
 export class WarehouseService {
   constructor(
@@ -856,7 +864,7 @@ export class WarehouseService {
       throw new BadRequestException("Order has no items");
     }
 
-    if ([OrderStatus.SHIPPED, OrderStatus.DELIVERED, OrderStatus.CANCELLED, OrderStatus.REFUNDED, OrderStatus.COMPLETED].includes(order.status)) {
+    if (stockLockedOrderStatuses.includes(order.status)) {
       throw new BadRequestException(`Cannot move stock for order in ${order.status} status`);
     }
 
@@ -1002,7 +1010,7 @@ export class WarehouseService {
     actorId: string,
     comment: string
   ) {
-    if ([OrderStatus.SHIPPED, OrderStatus.DELIVERED, OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.REFUNDED].includes(order.status)) {
+    if (stockLockedOrderStatuses.includes(order.status)) {
       return;
     }
 
