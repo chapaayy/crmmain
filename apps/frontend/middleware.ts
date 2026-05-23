@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const sessionHintCookie = "crm_session_hint";
-const publicPaths = ["/login"];
+const publicPaths = ["/health", "/login"];
 
 export function middleware(request: NextRequest) {
   const host = request.headers.get("host")?.split(":")[0];
