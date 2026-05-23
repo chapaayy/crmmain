@@ -575,7 +575,11 @@ export function OrderDetailPage({ orderId }: { orderId: string }) {
                   {order.statusHistory?.length ? (
                     order.statusHistory.map((item) => (
                       <div key={item.id} className="rounded-md border p-3 text-sm">
-                        <div className="font-medium">{item.previousStatus ?? "START"} -> {item.status}</div>
+                        <div className="font-medium">
+                          {item.previousStatus ?? "START"}
+                          {" -> "}
+                          {item.status}
+                        </div>
                         <div className="text-xs text-muted-foreground">{new Date(item.createdAt).toLocaleString()} / {item.changedBy?.name ?? "system"}</div>
                         {item.comment ? <div className="mt-1 text-muted-foreground">{item.comment}</div> : null}
                       </div>
