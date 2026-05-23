@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, Menu, ShieldCheck } from "lucide-react";
+import { Languages, LogOut, Menu, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { menuItems } from "@/lib/navigation";
 import type { WorkspaceMode } from "@/lib/domains";
+import { localeLabels, supportedLocales } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export function Topbar({ mode }: { mode: WorkspaceMode }) {
@@ -69,6 +71,22 @@ export function Topbar({ mode }: { mode: WorkspaceMode }) {
           <div className="truncate text-xs text-muted-foreground">{auth.user?.email}</div>
         </div>
         <NotificationBell />
+        <label className="hidden h-10 items-center gap-2 rounded-md border bg-background px-2 text-sm sm:flex">
+          <Languages className="h-4 w-4 text-muted-foreground" />
+          <span className="sr-only">Language</span>
+          <select
+            aria-label="Language"
+            className="bg-transparent text-sm outline-none"
+            value={auth.locale}
+            onChange={(event) => void auth.updateLocale(event.target.value as Locale)}
+          >
+            {supportedLocales.map((locale) => (
+              <option key={locale} value={locale}>
+                {localeLabels[locale]}
+              </option>
+            ))}
+          </select>
+        </label>
         <Button aria-label="Logout" size="icon" type="button" variant="outline" onClick={() => void auth.logout()}>
           <LogOut className="h-4 w-4" />
         </Button>

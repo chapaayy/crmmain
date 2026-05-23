@@ -35,9 +35,10 @@ export const menuItems: MenuItem[] = [
   { label: "Documents", href: "/documents", permission: "documents.read", icon: FileText },
   { label: "Tasks", href: "/tasks", permission: "tasks.read", icon: ReceiptText },
   { label: "Analytics", href: "/analytics", permission: "analytics.read", icon: BarChart3 },
+  { label: "My Settings", href: "/settings", icon: Settings },
   { label: "Users", href: "/admin/users", permission: "users.read", icon: UserCog, adminOnly: true },
   { label: "Roles", href: "/admin/roles", permission: "roles.read", icon: ShieldCheck, adminOnly: true },
-  { label: "Settings", href: "/admin/settings", permission: "settings.manage", icon: Settings, adminOnly: true },
+  { label: "Company Settings", href: "/admin/settings", permission: "settings.manage", icon: Settings, adminOnly: true },
   { label: "Audit Logs", href: "/admin/audit-logs", permission: "audit_logs.read", icon: ScrollText, adminOnly: true }
 ];
 

@@ -19,6 +19,7 @@ export interface CurrentUser {
   firstName?: string | null;
   lastName?: string | null;
   phone?: string | null;
+  locale?: string | null;
   role?: string;
   primaryRole?: string;
   isActive?: boolean;

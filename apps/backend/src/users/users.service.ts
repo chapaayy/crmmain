@@ -19,6 +19,7 @@ const userSelect = {
   firstName: true,
   lastName: true,
   phone: true,
+  locale: true,
   primaryRole: true,
   isActive: true,
   lastLoginAt: true,
@@ -94,6 +95,7 @@ export class UsersService {
             firstName: dto.firstName,
             lastName: dto.lastName,
             phone: dto.phone,
+            locale: dto.locale,
             isActive: dto.isActive ?? true,
             primaryRole: RoleCode.VIEWER,
             deletedAt: null,
@@ -109,6 +111,7 @@ export class UsersService {
             firstName: dto.firstName,
             lastName: dto.lastName,
             phone: dto.phone,
+            locale: dto.locale,
             isActive: dto.isActive ?? true,
             primaryRole: RoleCode.VIEWER,
             createdById: actorId,
@@ -256,6 +259,16 @@ export class UsersService {
       entityId: id,
       before: sanitizeJson(before),
       after: sanitizeJson(user)
+    });
+
+    return { user: this.serializeUser(user) };
+  }
+
+  async updateCurrentUserPreferences(id: string, locale: string) {
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: { locale },
+      select: userSelect
     });
 
     return { user: this.serializeUser(user) };

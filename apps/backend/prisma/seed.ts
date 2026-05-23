@@ -306,6 +306,7 @@ async function seedSuperAdmin(roleIds: Map<RoleCode, string>) {
       name,
       firstName,
       lastName,
+      locale: "ru",
       primaryRole: RoleCode.SUPER_ADMIN
     }
   });

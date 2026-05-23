@@ -7,6 +7,7 @@ import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { AssignUserRolesDto } from "../rbac/dto/assign-user-roles.dto";
 import { CreateUserDto } from "./dto/create-user.dto";
+import { UpdateCurrentUserPreferencesDto } from "./dto/update-current-user-preferences.dto";
 import { UpdateActiveDto } from "./dto/update-active.dto";
 import { UpdatePasswordDto } from "./dto/update-password.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
@@ -29,6 +30,11 @@ export class UsersController {
   @RequirePermissions("users.create")
   create(@Body() dto: CreateUserDto, @CurrentUser("userId") actorId: string) {
     return this.usersService.create(dto, actorId);
+  }
+
+  @Patch("me/preferences")
+  updateCurrentUserPreferences(@Body() dto: UpdateCurrentUserPreferencesDto, @CurrentUser("userId") userId: string) {
+    return this.usersService.updateCurrentUserPreferences(userId, dto.locale);
   }
 
   @Get(":id")

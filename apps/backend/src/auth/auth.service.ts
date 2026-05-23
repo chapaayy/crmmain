@@ -10,7 +10,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { LoginDto } from "./dto/login.dto";
 import { JwtPayload } from "./types";
 
-type SafeUser = Pick<User, "id" | "email" | "name" | "firstName" | "lastName" | "primaryRole">;
+type SafeUser = Pick<User, "id" | "email" | "name" | "firstName" | "lastName" | "locale" | "primaryRole">;
 
 @Injectable()
 export class AuthService {
@@ -143,6 +143,7 @@ export class AuthService {
         firstName: true,
         lastName: true,
         phone: true,
+        locale: true,
         primaryRole: true,
         isActive: true,
         lastLoginAt: true,
@@ -220,6 +221,7 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         phone: user.phone,
+        locale: user.locale,
         primaryRole: user.primaryRole,
         isActive: user.isActive,
         lastLoginAt: user.lastLoginAt,
@@ -310,6 +312,7 @@ export class AuthService {
       name: user.name,
       firstName: user.firstName,
       lastName: user.lastName,
+      locale: user.locale,
       role: user.primaryRole
     };
   }

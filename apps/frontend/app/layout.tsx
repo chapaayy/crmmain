@@ -3,8 +3,8 @@ import { Providers } from "@/components/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "CRM Polybags",
-  description: "CRM/ERP workspace for polypropylene bag sales"
+  title: "CRM Мешки",
+  description: "CRM/ERP для продаж полипропиленовых мешков"
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

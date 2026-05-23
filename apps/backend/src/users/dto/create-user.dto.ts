@@ -1,5 +1,5 @@
 import { RoleCode } from "@prisma/client";
-import { IsArray, IsBoolean, IsEmail, IsEnum, IsOptional, IsString, MinLength } from "class-validator";
+import { IsArray, IsBoolean, IsEmail, IsEnum, IsIn, IsOptional, IsString, MinLength } from "class-validator";
 
 export class CreateUserDto {
   @IsEmail()
@@ -23,6 +23,10 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @IsOptional()
+  @IsIn(["ru", "en"])
+  locale?: string;
 
   @IsOptional()
   @IsBoolean()

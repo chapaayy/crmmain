@@ -34,6 +34,7 @@ export interface AdminUser {
   firstName?: string | null;
   lastName?: string | null;
   phone?: string | null;
+  locale?: string | null;
   primaryRole: string;
   isActive: boolean;
   createdAt: string;

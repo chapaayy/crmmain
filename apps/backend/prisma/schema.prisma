@@ -176,6 +176,7 @@ model User {
   firstName    String?
   lastName     String?
   phone        String?
+  locale       String    @default("ru")
   primaryRole  RoleCode  @default(VIEWER)
   isActive     Boolean   @default(true)
   lastLoginAt  DateTime?
@@ -239,6 +240,7 @@ model User {
   updatedSettings         Setting[]            @relation("SettingUpdatedBy")
 
   @@index([primaryRole])
+  @@index([locale])
   @@index([isActive])
   @@index([deletedAt])
   @@index([createdById])
