@@ -9,6 +9,7 @@ import { configs, validateEnv } from "./config";
 import { HealthController } from "./health.controller";
 import { CustomersModule } from "./customers/customers.module";
 import { DocumentsModule } from "./documents/documents.module";
+import { EmployeeTasksModule } from "./employee-tasks/employee-tasks.module";
 import { EmployeesModule } from "./employees/employees.module";
 import { LeadsModule } from "./leads/leads.module";
 import { OrdersModule } from "./orders/orders.module";
@@ -19,6 +20,8 @@ import { ProductsModule } from "./products/products.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { RbacModule } from "./rbac/rbac.module";
 import { RealtimeModule } from "./realtime/realtime.module";
+import { ResponsibilitiesModule } from "./responsibilities/responsibilities.module";
+import { SecretsModule } from "./secrets/secrets.module";
 import { SettingsModule } from "./settings/settings.module";
 import { TasksModule } from "./tasks/tasks.module";
 import { UsersModule } from "./users/users.module";
@@ -39,6 +42,7 @@ import { WarehouseModule } from "./warehouse/warehouse.module";
     CommissionRulesModule,
     CustomersModule,
     DocumentsModule,
+    EmployeeTasksModule,
     EmployeesModule,
     LeadsModule,
     NotificationsModule,
@@ -47,6 +51,8 @@ import { WarehouseModule } from "./warehouse/warehouse.module";
     PayrollModule,
     RbacModule,
     RealtimeModule,
+    ResponsibilitiesModule,
+    SecretsModule,
     ProductsModule,
     SettingsModule,
     TasksModule,

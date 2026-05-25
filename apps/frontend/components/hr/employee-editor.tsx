@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { ArrowLeft, Loader2, Save, Trash2 } from "lucide-react";
@@ -9,6 +10,7 @@ import { useToast } from "@/components/toast/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import type { EmployeeTask, Responsibility, SecretVaultItem } from "@/components/employee-work/employee-work-types";
 import type { Employee, PaginatedResponse, UserOption } from "./hr-types";
 import { StatusBadge, compactPayload, formatDate, formatMoney, fromDateTimeLocal, toDateTimeLocal, toInputDate } from "./hr-ui";
 
@@ -28,6 +30,9 @@ export function EmployeeEditor({ employeeId }: { employeeId?: string }) {
   const { toast } = useToast();
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [users, setUsers] = useState<UserOption[]>([]);
+  const [responsibilities, setResponsibilities] = useState<Responsibility[]>([]);
+  const [employeeTasks, setEmployeeTasks] = useState<EmployeeTask[]>([]);
+  const [employeeSecrets, setEmployeeSecrets] = useState<SecretVaultItem[]>([]);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -61,14 +66,20 @@ export function EmployeeEditor({ employeeId }: { employeeId?: string }) {
   const canUpdate = auth.hasPermission("employees.update");
   const canDelete = auth.hasPermission("employees.delete");
   const canEdit = isNew ? canCreate : canUpdate;
+  const canReadResponsibilities = auth.hasPermission("responsibilities.read");
+  const canReadEmployeeTasks = auth.hasPermission("employee_tasks.read");
+  const canReadSecrets = auth.hasPermission("secrets.read_metadata");
 
   const load = useCallback(async () => {
     setLoading(true);
 
     try {
-      const [employeeResponse, usersResponse] = await Promise.all([
+      const [employeeResponse, usersResponse, responsibilitiesResponse, tasksResponse, secretsResponse] = await Promise.all([
         employeeId ? auth.api.request<EmployeeResponse>(`/employees/${employeeId}`) : Promise.resolve(null),
-        auth.hasPermission("users.read") ? auth.api.request<UsersResponse>("/users?limit=100") : Promise.resolve(null)
+        auth.hasPermission("users.read") ? auth.api.request<UsersResponse>("/users?limit=100") : Promise.resolve(null),
+        employeeId && canReadResponsibilities ? auth.api.request<{ data: Responsibility[] }>(`/employees/${employeeId}/responsibilities`) : Promise.resolve(null),
+        employeeId && canReadEmployeeTasks ? auth.api.request<PaginatedResponse<EmployeeTask>>(`/employee-tasks?assigneeEmployeeId=${employeeId}&limit=5`) : Promise.resolve(null),
+        employeeId && canReadSecrets ? auth.api.request<PaginatedResponse<SecretVaultItem>>(`/secrets?ownerEmployeeId=${employeeId}&limit=5`) : Promise.resolve(null)
       ]);
 
       if (employeeResponse) {
@@ -96,12 +107,15 @@ export function EmployeeEditor({ employeeId }: { employeeId?: string }) {
       }
 
       setUsers(usersResponse?.data ?? []);
+      setResponsibilities(responsibilitiesResponse?.data ?? []);
+      setEmployeeTasks(tasksResponse?.data ?? []);
+      setEmployeeSecrets(secretsResponse?.data ?? []);
     } catch (error) {
       toast({ title: "Не удалось загрузить сотрудника", description: error instanceof Error ? error.message : undefined, variant: "error" });
     } finally {
       setLoading(false);
     }
-  }, [auth, employeeId, toast]);
+  }, [auth, canReadEmployeeTasks, canReadResponsibilities, canReadSecrets, employeeId, toast]);
 
   useEffect(() => {
     void load();
@@ -351,6 +365,75 @@ export function EmployeeEditor({ employeeId }: { employeeId?: string }) {
                         <Button className="w-full" type="submit" variant="outline">Добавить график</Button>
                       </form>
                     ) : null}
+                  </CardContent>
+                </Card>
+              ) : null}
+
+              {!isNew && canReadResponsibilities ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Ответственности</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {responsibilities.length ? (
+                      responsibilities.map((responsibility) => (
+                        <div key={responsibility.id} className="rounded-md border p-3 text-sm">
+                          <div className="flex items-center justify-between gap-3">
+                            <Link className="font-medium text-primary hover:underline" href={`/responsibilities/${responsibility.id}`}>{responsibility.title}</Link>
+                            <StatusBadge status={responsibility.status} />
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground">{responsibility.category ?? "Без категории"}</div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-4 text-center text-sm text-muted-foreground">Ответственностей пока нет</div>
+                    )}
+                    <Button asChild className="w-full" variant="outline"><Link href="/responsibilities/new">Добавить ответственность</Link></Button>
+                  </CardContent>
+                </Card>
+              ) : null}
+
+              {!isNew && canReadEmployeeTasks ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Задачи</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {employeeTasks.length ? (
+                      employeeTasks.map((task) => (
+                        <div key={task.id} className="rounded-md border p-3 text-sm">
+                          <div className="flex items-center justify-between gap-3">
+                            <Link className="font-medium text-primary hover:underline" href={`/employee-tasks/${task.id}`}>{task.title}</Link>
+                            <StatusBadge status={task.status} />
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground">{task.priority} / {task.dueAt ? formatDate(task.dueAt) : "-"}</div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-4 text-center text-sm text-muted-foreground">Задач пока нет</div>
+                    )}
+                    <Button asChild className="w-full" variant="outline"><Link href="/employee-tasks/new">Добавить задачу</Link></Button>
+                  </CardContent>
+                </Card>
+              ) : null}
+
+              {!isNew && canReadSecrets ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Доступы</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {employeeSecrets.length ? (
+                      employeeSecrets.map((secret) => (
+                        <div key={secret.id} className="rounded-md border p-3 text-sm">
+                          <Link className="font-medium text-primary hover:underline" href={`/secrets/${secret.id}`}>{secret.title}</Link>
+                          <div className="mt-1 text-xs text-muted-foreground">{secret.type} / {secret.secretMasked ?? "без секрета"}</div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-4 text-center text-sm text-muted-foreground">Доступов пока нет</div>
+                    )}
+                    <Button asChild className="w-full" variant="outline"><Link href="/secrets/new">Добавить доступ</Link></Button>
                   </CardContent>
                 </Card>
               ) : null}

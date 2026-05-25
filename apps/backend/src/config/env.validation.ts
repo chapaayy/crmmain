@@ -77,6 +77,22 @@ class EnvironmentVariables {
 
   @IsOptional()
   @IsString()
+  SECRETS_ENCRYPTION_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  SECRETS_ENABLE_REVEAL_AUDIT?: string;
+
+  @IsOptional()
+  @IsString()
+  SECRETS_REQUIRE_REASON_ON_REVEAL?: string;
+
+  @IsOptional()
+  @IsString()
+  SECRETS_MASK_BY_DEFAULT?: string;
+
+  @IsOptional()
+  @IsString()
   COMPANY_NAME?: string;
 
   @IsOptional()

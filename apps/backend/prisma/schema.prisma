@@ -201,6 +201,43 @@ enum TaskRelatedType {
   PRODUCT
 }
 
+enum ResponsibilityStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum ResponsibilityAssignmentRole {
+  OWNER
+  BACKUP
+  PARTICIPANT
+  VIEWER
+}
+
+enum ResponsibilityInstructionFormat {
+  MARKDOWN
+  PLAIN_TEXT
+}
+
+enum SecretVaultItemType {
+  LOGIN_PASSWORD
+  API_KEY
+  TOKEN
+  CARD_INFO
+  EMAIL_ACCOUNT
+  TELEGRAM_ACCOUNT
+  HOSTING
+  OTHER
+}
+
+enum SecretAccessAction {
+  CREATED
+  UPDATED
+  DELETED
+  REVEALED
+  METADATA_VIEWED
+}
+
 enum DocumentType {
   INVOICE
   COMMERCIAL_OFFER
@@ -297,6 +334,16 @@ model User {
   createdDocuments        Document[]           @relation("DocumentCreatedBy")
   updatedDocuments        Document[]           @relation("DocumentUpdatedBy")
   assignedTasks           Task[]               @relation("TaskAssignedTo")
+  ownedResponsibilities   Responsibility[]     @relation("ResponsibilityOwnerUser")
+  createdResponsibilities Responsibility[]     @relation("ResponsibilityCreatedBy")
+  responsibilityAssignments ResponsibilityAssignment[] @relation("ResponsibilityAssignmentUser")
+  assignedResponsibilities ResponsibilityAssignment[] @relation("ResponsibilityAssignmentAssignedBy")
+  createdResponsibilityInstructions ResponsibilityInstruction[] @relation("ResponsibilityInstructionCreatedBy")
+  updatedResponsibilityInstructions ResponsibilityInstruction[] @relation("ResponsibilityInstructionUpdatedBy")
+  createdSecretVaultItems SecretVaultItem[]    @relation("SecretVaultItemCreatedBy")
+  updatedSecretVaultItems SecretVaultItem[]    @relation("SecretVaultItemUpdatedBy")
+  ownedSecretVaultItems   SecretVaultItem[]    @relation("SecretVaultItemOwnerUser")
+  secretAccessLogs        SecretAccessLog[]    @relation("SecretAccessLogUser")
   createdTasks            Task[]               @relation("TaskCreatedBy")
   updatedTasks            Task[]               @relation("TaskUpdatedBy")
   comments                Comment[]            @relation("CommentAuthor")
@@ -922,15 +969,21 @@ model Task {
   dueSoonNotifiedAt DateTime?
   relatedType  TaskRelatedType?
   relatedId    String?
+  isEmployeeTask Boolean    @default(false)
   completedAt  DateTime?
   assignedToId String?
   customerId   String?
   leadId       String?
   orderId      String?
   productId    String?
+  assigneeEmployeeId String?
+  assigneeDepartment String?
+  responsibilityId String?
   createdById  String?
   updatedById  String?
   assignedTo   User?        @relation("TaskAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assigneeEmployee EmployeeProfile? @relation("TaskAssigneeEmployee", fields: [assigneeEmployeeId], references: [id], onDelete: SetNull)
+  responsibility Responsibility? @relation(fields: [responsibilityId], references: [id], onDelete: SetNull)
   customer     Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
   lead         Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
   order        Order?       @relation(fields: [orderId], references: [id], onDelete: SetNull)
@@ -946,8 +999,12 @@ model Task {
   @@index([status])
   @@index([priority])
   @@index([assignedToId])
+  @@index([assigneeEmployeeId])
+  @@index([assigneeDepartment])
+  @@index([responsibilityId])
   @@index([createdById])
   @@index([relatedType, relatedId])
+  @@index([isEmployeeTask])
   @@index([customerId])
   @@index([leadId])
   @@index([orderId])
@@ -1086,6 +1143,10 @@ model EmployeeProfile {
   payrollLines    PayrollLine[]
   adjustments     PayrollAdjustment[]
   commissionRules CommissionRule[]
+  assignedTasks    Task[] @relation("TaskAssigneeEmployee")
+  ownedResponsibilities Responsibility[] @relation("ResponsibilityOwnerEmployee")
+  responsibilityAssignments ResponsibilityAssignment[]
+  ownedSecretVaultItems SecretVaultItem[] @relation("SecretVaultItemOwnerEmployee")
 
   @@index([userId])
   @@index([employeeNumber])
@@ -1288,6 +1349,148 @@ model CommissionRule {
   @@index([productCategoryId])
   @@index([isActive])
   @@index([deletedAt])
+}
+
+model Responsibility {
+  id              String                       @id @default(cuid())
+  title           String
+  description     String?
+  category        String?
+  status          ResponsibilityStatus         @default(ACTIVE)
+  ownerUserId     String?
+  ownerEmployeeId String?
+  createdById     String
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+  deletedAt       DateTime?
+  ownerUser       User?                        @relation("ResponsibilityOwnerUser", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  ownerEmployee   EmployeeProfile?             @relation("ResponsibilityOwnerEmployee", fields: [ownerEmployeeId], references: [id], onDelete: SetNull)
+  createdBy       User                         @relation("ResponsibilityCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  assignments     ResponsibilityAssignment[]
+  instructions    ResponsibilityInstruction[]
+  checklistItems  ResponsibilityChecklistItem[]
+  secrets         SecretVaultItem[]
+  tasks           Task[]
+
+  @@index([ownerUserId])
+  @@index([ownerEmployeeId])
+  @@index([createdById])
+  @@index([category])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model ResponsibilityAssignment {
+  id               String                       @id @default(cuid())
+  responsibilityId String
+  employeeId       String?
+  userId           String?
+  role             ResponsibilityAssignmentRole @default(PARTICIPANT)
+  assignedById     String
+  assignedAt       DateTime                     @default(now())
+  createdAt        DateTime                     @default(now())
+  updatedAt        DateTime                     @updatedAt
+  responsibility   Responsibility               @relation(fields: [responsibilityId], references: [id], onDelete: Cascade)
+  employee         EmployeeProfile?             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  user             User?                        @relation("ResponsibilityAssignmentUser", fields: [userId], references: [id], onDelete: Cascade)
+  assignedBy       User                         @relation("ResponsibilityAssignmentAssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+
+  @@index([responsibilityId])
+  @@index([employeeId])
+  @@index([userId])
+  @@index([role])
+  @@index([assignedById])
+}
+
+model ResponsibilityInstruction {
+  id               String                          @id @default(cuid())
+  responsibilityId String
+  title            String
+  content          String
+  format           ResponsibilityInstructionFormat @default(MARKDOWN)
+  version          Int                             @default(1)
+  isActive         Boolean                         @default(true)
+  createdById      String
+  updatedById      String?
+  createdAt        DateTime                        @default(now())
+  updatedAt        DateTime                        @updatedAt
+  responsibility   Responsibility                  @relation(fields: [responsibilityId], references: [id], onDelete: Cascade)
+  createdBy        User                            @relation("ResponsibilityInstructionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy        User?                           @relation("ResponsibilityInstructionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([responsibilityId])
+  @@index([isActive])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model ResponsibilityChecklistItem {
+  id               String         @id @default(cuid())
+  responsibilityId String
+  title            String
+  description      String?
+  sortOrder        Int            @default(0)
+  isRequired       Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  responsibility   Responsibility @relation(fields: [responsibilityId], references: [id], onDelete: Cascade)
+
+  @@index([responsibilityId])
+  @@index([sortOrder])
+}
+
+model SecretVaultItem {
+  id               String              @id @default(cuid())
+  title            String
+  description      String?
+  type             SecretVaultItemType @default(OTHER)
+  url              String?
+  username         String?
+  login            String?
+  phone            String?
+  email            String?
+  encryptedSecret  String?
+  encryptedNotes   String?
+  responsibilityId String?
+  ownerUserId      String?
+  ownerEmployeeId  String?
+  createdById      String
+  updatedById      String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  deletedAt        DateTime?
+  responsibility   Responsibility?     @relation(fields: [responsibilityId], references: [id], onDelete: SetNull)
+  ownerUser        User?               @relation("SecretVaultItemOwnerUser", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  ownerEmployee    EmployeeProfile?    @relation("SecretVaultItemOwnerEmployee", fields: [ownerEmployeeId], references: [id], onDelete: SetNull)
+  createdBy        User                @relation("SecretVaultItemCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy        User?               @relation("SecretVaultItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  accessLogs       SecretAccessLog[]
+
+  @@index([responsibilityId])
+  @@index([ownerUserId])
+  @@index([ownerEmployeeId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([type])
+  @@index([deletedAt])
+}
+
+model SecretAccessLog {
+  id        String             @id @default(cuid())
+  secretId  String
+  userId    String
+  action    SecretAccessAction
+  reason    String?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime           @default(now())
+  secret    SecretVaultItem     @relation(fields: [secretId], references: [id], onDelete: Cascade)
+  user      User                @relation("SecretAccessLogUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([secretId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
 }
 
 model FileAsset {

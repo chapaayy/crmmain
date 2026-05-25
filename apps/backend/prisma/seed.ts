@@ -16,14 +16,22 @@ import {
   PayrollRunStatus,
   Prisma,
   PrismaClient,
+  ResponsibilityAssignmentRole,
+  ResponsibilityInstructionFormat,
+  ResponsibilityStatus,
   RoleCode,
+  SecretAccessAction,
+  SecretVaultItemType,
   StockMovementType,
+  TaskPriority,
+  TaskStatus,
   TimeEntrySource,
   TimeEntryStatus,
   WorkScheduleType,
   WorkShiftStatus
 } from "@prisma/client";
 import * as bcrypt from "bcrypt";
+import { createCipheriv, createHash, randomBytes } from "crypto";
 
 const prisma = new PrismaClient();
 
@@ -76,7 +84,26 @@ const permissions = [
   ["payroll.approve", "Approve payroll", "payroll", "approve"],
   ["payroll.export", "Export payroll", "payroll", "export"],
   ["salary_rules.read", "Read salary rules", "salary_rules", "read"],
-  ["salary_rules.manage", "Manage salary rules", "salary_rules", "manage"]
+  ["salary_rules.manage", "Manage salary rules", "salary_rules", "manage"],
+  ["employee_tasks.read", "Read employee tasks", "employee_tasks", "read"],
+  ["employee_tasks.create", "Create employee tasks", "employee_tasks", "create"],
+  ["employee_tasks.update", "Update employee tasks", "employee_tasks", "update"],
+  ["employee_tasks.delete", "Delete employee tasks", "employee_tasks", "delete"],
+  ["employee_tasks.assign", "Assign employee tasks", "employee_tasks", "assign"],
+  ["responsibilities.read", "Read responsibilities", "responsibilities", "read"],
+  ["responsibilities.create", "Create responsibilities", "responsibilities", "create"],
+  ["responsibilities.update", "Update responsibilities", "responsibilities", "update"],
+  ["responsibilities.delete", "Delete responsibilities", "responsibilities", "delete"],
+  ["responsibilities.assign", "Assign responsibilities", "responsibilities", "assign"],
+  ["instructions.read", "Read instructions", "instructions", "read"],
+  ["instructions.manage", "Manage instructions", "instructions", "manage"],
+  ["secrets.read_metadata", "Read secret metadata", "secrets", "read_metadata"],
+  ["secrets.create", "Create secrets", "secrets", "create"],
+  ["secrets.update", "Update secrets", "secrets", "update"],
+  ["secrets.delete", "Delete secrets", "secrets", "delete"],
+  ["secrets.reveal", "Reveal secrets", "secrets", "reveal"],
+  ["secrets.assign", "Assign secrets", "secrets", "assign"],
+  ["secret_access_logs.read", "Read secret access logs", "secret_access_logs", "read"]
 ] as const;
 
 const roleDescriptions: Record<RoleCode, string> = {
@@ -103,7 +130,14 @@ const defaultProductCategories = [
 ] as const;
 
 const adminPermissionKeys = ["users.read", "roles.read", "audit_logs.read"];
-const hiddenReadPermissionKeys = ["payroll.read", "salary_rules.read"];
+const hiddenReadPermissionKeys = [
+  "payroll.read",
+  "salary_rules.read",
+  "employee_tasks.read",
+  "responsibilities.read",
+  "instructions.read",
+  "secret_access_logs.read"
+];
 const readPermissions = permissions
   .map(([key]) => key)
   .filter((key) => key.endsWith(".read") && !adminPermissionKeys.includes(key) && !hiddenReadPermissionKeys.includes(key));
@@ -122,7 +156,19 @@ const rolePermissionKeys: Record<RoleCode, string[]> = {
     "attendance.own",
     "payroll.read",
     "payroll.manage",
-    "salary_rules.read"
+    "salary_rules.read",
+    "employee_tasks.read",
+    "employee_tasks.create",
+    "employee_tasks.update",
+    "employee_tasks.delete",
+    "employee_tasks.assign",
+    "responsibilities.read",
+    "responsibilities.create",
+    "responsibilities.update",
+    "responsibilities.delete",
+    "responsibilities.assign",
+    "instructions.read",
+    "instructions.manage"
   ],
   PAYROLL_MANAGER: [
     "payroll.read",
@@ -151,6 +197,9 @@ const rolePermissionKeys: Record<RoleCode, string[]> = {
     "tasks.read",
     "tasks.create",
     "tasks.update",
+    "employee_tasks.read",
+    "responsibilities.read",
+    "instructions.read",
     "attendance.own",
     "analytics.read"
   ],
@@ -1225,6 +1274,224 @@ async function seedHrDemoData(actorId?: string) {
   });
 }
 
+async function seedEmployeeWorkDemoData(actorId?: string) {
+  if (!actorId) {
+    return;
+  }
+
+  const employee = await prisma.employeeProfile.findFirst({
+    where: { employeeNumber: "EMP-0001", deletedAt: null },
+    select: { id: true, userId: true }
+  });
+
+  if (!employee) {
+    return;
+  }
+
+  const responsibility = await upsertFirst(
+    () => prisma.responsibility.findFirst({ where: { title: "Оплата Telegram-рекламы", deletedAt: null } }),
+    (id) =>
+      prisma.responsibility.update({
+        where: { id },
+        data: {
+          description: "Регулярная проверка баланса и оплата Telegram Ads с фиксацией подтверждения.",
+          category: "Marketing",
+          status: ResponsibilityStatus.ACTIVE,
+          ownerUserId: employee.userId,
+          ownerEmployeeId: employee.id,
+          createdById: actorId
+        }
+      }),
+    () =>
+      prisma.responsibility.create({
+        data: {
+          title: "Оплата Telegram-рекламы",
+          description: "Регулярная проверка баланса и оплата Telegram Ads с фиксацией подтверждения.",
+          category: "Marketing",
+          status: ResponsibilityStatus.ACTIVE,
+          ownerUserId: employee.userId,
+          ownerEmployeeId: employee.id,
+          createdById: actorId
+        }
+      })
+  );
+
+  await upsertFirst(
+    () => prisma.responsibilityAssignment.findFirst({ where: { responsibilityId: responsibility.id, employeeId: employee.id, role: ResponsibilityAssignmentRole.OWNER } }),
+    (id) =>
+      prisma.responsibilityAssignment.update({
+        where: { id },
+        data: {
+          userId: employee.userId,
+          assignedById: actorId,
+          assignedAt: new Date()
+        }
+      }),
+    () =>
+      prisma.responsibilityAssignment.create({
+        data: {
+          responsibilityId: responsibility.id,
+          employeeId: employee.id,
+          userId: employee.userId,
+          role: ResponsibilityAssignmentRole.OWNER,
+          assignedById: actorId
+        }
+      })
+  );
+
+  await upsertFirst(
+    () => prisma.responsibilityInstruction.findFirst({ where: { responsibilityId: responsibility.id, title: "Как оплатить Telegram Ads" } }),
+    (id) =>
+      prisma.responsibilityInstruction.update({
+        where: { id },
+        data: {
+          content: [
+            "1. Зайти в Telegram Ads.",
+            "2. Выбрать рекламный кабинет.",
+            "3. Проверить баланс и лимиты.",
+            "4. Оплатить с корпоративной карты.",
+            "5. Скачать чек и прикрепить подтверждение.",
+            "6. Написать руководителю о завершении оплаты."
+          ].join("\n"),
+          format: ResponsibilityInstructionFormat.MARKDOWN,
+          isActive: true,
+          updatedById: actorId,
+          version: { increment: 1 }
+        }
+      }),
+    () =>
+      prisma.responsibilityInstruction.create({
+        data: {
+          responsibilityId: responsibility.id,
+          title: "Как оплатить Telegram Ads",
+          content: [
+            "1. Зайти в Telegram Ads.",
+            "2. Выбрать рекламный кабинет.",
+            "3. Проверить баланс и лимиты.",
+            "4. Оплатить с корпоративной карты.",
+            "5. Скачать чек и прикрепить подтверждение.",
+            "6. Написать руководителю о завершении оплаты."
+          ].join("\n"),
+          format: ResponsibilityInstructionFormat.MARKDOWN,
+          createdById: actorId
+        }
+      })
+  );
+
+  for (const [index, title] of [
+    "Проверить баланс",
+    "Оплатить",
+    "Скачать чек",
+    "Прикрепить подтверждение",
+    "Отметить задачу выполненной"
+  ].entries()) {
+    await upsertFirst(
+      () => prisma.responsibilityChecklistItem.findFirst({ where: { responsibilityId: responsibility.id, title } }),
+      (id) =>
+        prisma.responsibilityChecklistItem.update({
+          where: { id },
+          data: {
+            sortOrder: index + 1,
+            isRequired: true
+          }
+        }),
+      () =>
+        prisma.responsibilityChecklistItem.create({
+          data: {
+            responsibilityId: responsibility.id,
+            title,
+            sortOrder: index + 1,
+            isRequired: true
+          }
+        })
+    );
+  }
+
+  await upsertFirst(
+    () => prisma.task.findFirst({ where: { responsibilityId: responsibility.id, title: "Проверить баланс Telegram Ads", deletedAt: null } }),
+    (id) =>
+      prisma.task.update({
+        where: { id },
+        data: {
+          assignedToId: employee.userId,
+          assigneeEmployeeId: employee.id,
+          assigneeDepartment: "Marketing",
+          isEmployeeTask: true,
+          status: TaskStatus.TODO,
+          priority: TaskPriority.HIGH,
+          updatedById: actorId
+        }
+      }),
+    () =>
+      prisma.task.create({
+        data: {
+          title: "Проверить баланс Telegram Ads",
+          description: "Проверить баланс рекламного кабинета и подготовить оплату, если лимит ниже рабочего минимума.",
+          status: TaskStatus.TODO,
+          priority: TaskPriority.HIGH,
+          assignedToId: employee.userId,
+          assigneeEmployeeId: employee.id,
+          assigneeDepartment: "Marketing",
+          responsibilityId: responsibility.id,
+          isEmployeeTask: true,
+          createdById: actorId,
+          updatedById: actorId
+        }
+      })
+  );
+
+  const secret = await upsertFirst(
+    () => prisma.secretVaultItem.findFirst({ where: { responsibilityId: responsibility.id, title: "Telegram Ads demo access", deletedAt: null } }),
+    (id) =>
+      prisma.secretVaultItem.update({
+        where: { id },
+        data: {
+          type: SecretVaultItemType.TELEGRAM_ACCOUNT,
+          url: "https://ads.telegram.org",
+          email: "demo-telegram-ads@example.com",
+          phone: "+79990000000",
+          encryptedSecret: encryptSeedSecret("demo-password-change-me"),
+          encryptedNotes: encryptSeedSecret("Demo 2FA notes: replace with real secure notes."),
+          ownerUserId: employee.userId,
+          ownerEmployeeId: employee.id,
+          updatedById: actorId,
+          deletedAt: null
+        }
+      }),
+    () =>
+      prisma.secretVaultItem.create({
+        data: {
+          title: "Telegram Ads demo access",
+          description: "Demo credentials for Telegram Ads payment process.",
+          type: SecretVaultItemType.TELEGRAM_ACCOUNT,
+          url: "https://ads.telegram.org",
+          email: "demo-telegram-ads@example.com",
+          phone: "+79990000000",
+          encryptedSecret: encryptSeedSecret("demo-password-change-me"),
+          encryptedNotes: encryptSeedSecret("Demo 2FA notes: replace with real secure notes."),
+          responsibilityId: responsibility.id,
+          ownerUserId: employee.userId,
+          ownerEmployeeId: employee.id,
+          createdById: actorId
+        }
+      })
+  );
+
+  await upsertFirst(
+    () => prisma.secretAccessLog.findFirst({ where: { secretId: secret.id, userId: actorId, action: SecretAccessAction.CREATED } }),
+    (id) => prisma.secretAccessLog.update({ where: { id }, data: { reason: "Demo seed" } }),
+    () =>
+      prisma.secretAccessLog.create({
+        data: {
+          secretId: secret.id,
+          userId: actorId,
+          action: SecretAccessAction.CREATED,
+          reason: "Demo seed"
+        }
+      })
+  );
+}
+
 async function upsertFirst<T extends { id: string }>(
   find: () => Promise<T | null>,
   update: (id: string) => Promise<T>,
@@ -1241,6 +1508,24 @@ function decimal(value: number) {
 
 function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function encryptSeedSecret(value: string) {
+  const keySource =
+    process.env.SECRETS_ENCRYPTION_KEY ??
+    process.env.JWT_ACCESS_SECRET ??
+    "change_me_32_plus_chars_secret_key";
+  const key = createHash("sha256").update(keySource).digest();
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const data = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+
+  return JSON.stringify({
+    iv: iv.toString("base64"),
+    authTag: authTag.toString("base64"),
+    data: data.toString("base64")
+  });
 }
 
 async function main() {
@@ -1262,6 +1547,7 @@ async function main() {
   const actorId = await seedSuperAdmin(roleIds);
   await seedDemoData(actorId);
   await seedHrDemoData(actorId);
+  await seedEmployeeWorkDemoData(actorId);
 }
 
 main()
