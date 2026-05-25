@@ -156,8 +156,8 @@ export function getVisibleMenuItems(auth: ReturnType<typeof useAuth>) {
 }
 
 export function isActive(pathname: string, href: string) {
-  if (href === "/dashboard") {
-    return pathname === "/" || pathname === "/dashboard";
+  if (href === "/home") {
+    return pathname === "/" || pathname === "/home";
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);

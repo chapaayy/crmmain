@@ -73,6 +73,7 @@ const permissions = [
   ["settings.manage", "Manage settings", "settings", "manage"],
   ["audit_logs.read", "Read audit logs", "audit_logs", "read"],
   ["employees.read", "Read employees", "employees", "read"],
+  ["employees.own", "Read own employee profile", "employees", "own"],
   ["employees.create", "Create employees", "employees", "create"],
   ["employees.update", "Update employees", "employees", "update"],
   ["employees.delete", "Delete employees", "employees", "delete"],
@@ -80,6 +81,7 @@ const permissions = [
   ["attendance.manage", "Manage attendance", "attendance", "manage"],
   ["attendance.own", "Read own attendance", "attendance", "own"],
   ["payroll.read", "Read payroll", "payroll", "read"],
+  ["payroll.own", "Read own payroll", "payroll", "own"],
   ["payroll.manage", "Manage payroll", "payroll", "manage"],
   ["payroll.approve", "Approve payroll", "payroll", "approve"],
   ["payroll.export", "Export payroll", "payroll", "export"],
@@ -148,6 +150,7 @@ const rolePermissionKeys: Record<RoleCode, string[]> = {
   ADMIN: permissions.map(([key]) => key),
   HR_MANAGER: [
     "employees.read",
+    "employees.own",
     "employees.create",
     "employees.update",
     "employees.delete",
@@ -155,6 +158,7 @@ const rolePermissionKeys: Record<RoleCode, string[]> = {
     "attendance.manage",
     "attendance.own",
     "payroll.read",
+    "payroll.own",
     "payroll.manage",
     "salary_rules.read",
     "employee_tasks.read",
@@ -172,15 +176,18 @@ const rolePermissionKeys: Record<RoleCode, string[]> = {
   ],
   PAYROLL_MANAGER: [
     "payroll.read",
+    "payroll.own",
     "payroll.manage",
     "payroll.approve",
     "payroll.export",
     "salary_rules.read",
     "salary_rules.manage",
     "attendance.read",
-    "employees.read"
+    "employees.read",
+    "employees.own"
   ],
   SALES_MANAGER: [
+    "employees.own",
     "customers.read",
     "customers.create",
     "customers.update",
@@ -201,9 +208,11 @@ const rolePermissionKeys: Record<RoleCode, string[]> = {
     "responsibilities.read",
     "instructions.read",
     "attendance.own",
+    "payroll.own",
     "analytics.read"
   ],
   WAREHOUSE_MANAGER: [
+    "employees.own",
     "products.read",
     "products.update",
     "warehouse.read",
@@ -213,14 +222,17 @@ const rolePermissionKeys: Record<RoleCode, string[]> = {
     "documents.read",
     "tasks.read",
     "tasks.create",
-    "tasks.update"
+    "tasks.update",
+    "payroll.own"
   ],
   ACCOUNTANT: [
+    "employees.own",
     "customers.read",
     "orders.read",
     "payments.read",
     "payments.manage",
     "payroll.read",
+    "payroll.own",
     "payroll.manage",
     "payroll.export",
     "employees.read",
@@ -230,7 +242,7 @@ const rolePermissionKeys: Record<RoleCode, string[]> = {
     "analytics.read",
     "analytics.read_finance"
   ],
-  VIEWER: readPermissions
+  VIEWER: [...readPermissions, "employees.own"]
 };
 
 function splitName(name: string) {

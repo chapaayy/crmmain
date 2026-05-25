@@ -20,7 +20,7 @@ export function Topbar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
   const auth = useAuth();
   const title = useMemo(() => getCurrentTitle(pathname), [pathname]);
   const visibleItems = getVisibleMenuItems(auth);
-  const crumbs = title === "Dashboard" ? ["Overview", title] : ["Workspace", title];
+  const crumbs = title === "Главная" ? ["Обзор", title] : ["Workspace", title];
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background/86 backdrop-blur-xl">
@@ -153,6 +153,6 @@ function getCurrentTitle(pathname: string) {
   return (
     [...menuItems]
       .sort((left, right) => right.href.length - left.href.length)
-      .find((item) => isActive(pathname, item.href))?.label ?? "Dashboard"
+      .find((item) => isActive(pathname, item.href))?.label ?? "Главная"
   );
 }

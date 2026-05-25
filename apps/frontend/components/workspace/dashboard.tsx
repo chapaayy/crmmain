@@ -175,7 +175,7 @@ export function Dashboard() {
       const response = await auth.api.request<AnalyticsDashboard>(`/analytics/dashboard${query ? `?${query}` : ""}`);
       setData(response);
     } catch (error) {
-      toast({ title: "Unable to load dashboard", description: error instanceof Error ? error.message : undefined, variant: "error" });
+      toast({ title: "Не удалось загрузить аналитику", description: error instanceof Error ? error.message : undefined, variant: "error" });
     } finally {
       setLoading(false);
     }
@@ -193,7 +193,7 @@ export function Dashboard() {
     <PermissionGate permission="analytics.read">
       <main className="space-y-5 p-4 sm:p-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <PageHeader title="Dashboard" description="Заказы, лиды, склад, финансы и зарплата за выбранный период." />
+          <PageHeader title="Аналитика" description="Общая аналитика компании: заказы, лиды, склад, финансы и зарплата за выбранный период." />
           <div className="grid gap-2 sm:grid-cols-2 xl:w-[900px] xl:grid-cols-[150px_150px_1fr_1fr_1fr_auto]">
             <Input type="date" value={filters.dateFrom} onChange={(event) => updateFilter("dateFrom", event.target.value)} />
             <Input type="date" value={filters.dateTo} onChange={(event) => updateFilter("dateTo", event.target.value)} />

@@ -12,6 +12,7 @@ import { DocumentsModule } from "./documents/documents.module";
 import { EmployeeTasksModule } from "./employee-tasks/employee-tasks.module";
 import { EmployeesModule } from "./employees/employees.module";
 import { LeadsModule } from "./leads/leads.module";
+import { MeModule } from "./me/me.module";
 import { OrdersModule } from "./orders/orders.module";
 import { PaymentsModule } from "./payments/payments.module";
 import { PayrollModule } from "./payroll/payroll.module";
@@ -45,6 +46,7 @@ import { WarehouseModule } from "./warehouse/warehouse.module";
     EmployeeTasksModule,
     EmployeesModule,
     LeadsModule,
+    MeModule,
     NotificationsModule,
     OrdersModule,
     PaymentsModule,

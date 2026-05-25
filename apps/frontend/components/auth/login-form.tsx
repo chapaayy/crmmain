@@ -84,7 +84,7 @@ export function LoginForm() {
 
 function sanitizeNextPath(value: string | null) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return "/";
+    return "/home";
   }
 
   return value;
