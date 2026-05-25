@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/workspace/page-header";
 
 export function AdminPageHeader({
   title,
@@ -9,13 +10,5 @@ export function AdminPageHeader({
   description: string;
   permission: string;
 }) {
-  return (
-    <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-normal">{title}</h2>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
-      <Badge variant="outline">{permission}</Badge>
-    </div>
-  );
+  return <PageHeader actions={<Badge variant="outline">{permission}</Badge>} className="mb-6" description={description} title={title} />;
 }

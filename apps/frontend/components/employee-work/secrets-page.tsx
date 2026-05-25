@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Clipboard, Eye, EyeOff, KeyRound, Loader2, Plus, Save, Search, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Clipboard, Eye, EyeOff, KeyRound, Loader2, Plus, Save, Search, Trash2, X } from "lucide-react";
 import { PaginationControls } from "@/components/admin/pagination-controls";
 import { PermissionGate } from "@/components/auth/permission-gate";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -226,6 +226,7 @@ export function SecretDetailPage({ secretId }: { secretId?: string }) {
   const [logs, setLogs] = useState<SecretAccessLog[]>([]);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
+  const [revealOpen, setRevealOpen] = useState(false);
   const [revealReason, setRevealReason] = useState("");
   const [revealed, setRevealed] = useState<SecretRevealResponse | null>(null);
   const [form, setForm] = useState<SecretFormState>(emptySecretForm);
@@ -322,6 +323,12 @@ export function SecretDetailPage({ secretId }: { secretId?: string }) {
     }
   }
 
+  function closeRevealModal() {
+    setRevealOpen(false);
+    setRevealReason("");
+    setRevealed(null);
+  }
+
   async function copyValue(value: string | null) {
     if (!value) {
       return;
@@ -360,23 +367,10 @@ export function SecretDetailPage({ secretId }: { secretId?: string }) {
                   <CardContent className="space-y-3 text-sm">
                     <div className="rounded-md border border-warning/30 bg-warning/10 p-3 text-muted-foreground">Просмотр будет записан в журнал доступа. Не сохраняйте раскрытый секрет в заметки, чат или localStorage.</div>
                     {canReveal ? (
-                      <>
-                        <TextAreaField label="Причина просмотра" value={revealReason} onChange={setRevealReason} />
-                        <Button className="w-full" type="button" onClick={() => void revealSecret()}><KeyRound className="h-4 w-4" /> Показать</Button>
-                      </>
+                      <Button className="w-full" type="button" onClick={() => setRevealOpen(true)}><KeyRound className="h-4 w-4" /> Показать</Button>
                     ) : (
                       <div className="text-muted-foreground">Нет права secrets.reveal.</div>
                     )}
-                    {revealed ? (
-                      <div className="space-y-3 rounded-md border p-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="font-medium">Секрет</span>
-                          <Button size="sm" type="button" variant="outline" onClick={() => void setRevealed(null)}><EyeOff className="h-4 w-4" /> Скрыть</Button>
-                        </div>
-                        <SecretValue label="Secret" value={revealed.secret} onCopy={copyValue} />
-                        <SecretValue label="Notes" value={revealed.notes} onCopy={copyValue} />
-                      </div>
-                    ) : null}
                   </CardContent>
                 </Card>
 
@@ -409,6 +403,15 @@ export function SecretDetailPage({ secretId }: { secretId?: string }) {
             ) : null}
           </div>
         )}
+        <RevealSecretDialog
+          open={revealOpen}
+          reason={revealReason}
+          revealed={revealed}
+          onReasonChange={setRevealReason}
+          onReveal={() => void revealSecret()}
+          onClose={closeRevealModal}
+          onCopy={copyValue}
+        />
       </main>
     </PermissionGate>
   );
@@ -469,7 +472,74 @@ function SecretForm({
   );
 }
 
-function SecretValue({ label, value, onCopy }: { label: string; value: string | null; onCopy: (value: string | null) => void }) {
+function RevealSecretDialog({
+  open,
+  reason,
+  revealed,
+  onReasonChange,
+  onReveal,
+  onClose,
+  onCopy
+}: {
+  open: boolean;
+  reason: string;
+  revealed: SecretRevealResponse | null;
+  onReasonChange: (value: string) => void;
+  onReveal: () => void;
+  onClose: () => void;
+  onCopy: (value: string | null) => void | Promise<void>;
+}) {
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-2xl rounded-lg border border-border bg-popover shadow-panel">
+        <div className="flex items-start justify-between gap-4 border-b border-border p-5">
+          <div className="flex items-start gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-warning/30 bg-warning/15 text-warning">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold">Показать секрет</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Просмотр будет записан в журнал доступа. Значение очищается при закрытии окна.</p>
+            </div>
+          </div>
+          <Button aria-label="Close" size="icon" type="button" variant="ghost" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="space-y-4 p-5">
+          {!revealed ? (
+            <>
+              <TextAreaField label="Причина просмотра" value={reason} rows={3} placeholder="Например: нужно оплатить Telegram Ads" onChange={onReasonChange} />
+              <Button className="w-full" type="button" onClick={onReveal}>
+                <KeyRound className="h-4 w-4" />
+                Показать и записать в журнал
+              </Button>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-medium">Секрет раскрыт</span>
+                <Button size="sm" type="button" variant="outline" onClick={onClose}>
+                  <EyeOff className="h-4 w-4" />
+                  Скрыть
+                </Button>
+              </div>
+              <SecretValue label="Secret" value={revealed.secret} onCopy={onCopy} />
+              <SecretValue label="Notes" value={revealed.notes} onCopy={onCopy} />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SecretValue({ label, value, onCopy }: { label: string; value: string | null; onCopy: (value: string | null) => void | Promise<void> }) {
   return (
     <div className="rounded-md bg-muted p-3">
       <div className="mb-2 flex items-center justify-between gap-2">

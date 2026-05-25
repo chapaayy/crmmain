@@ -102,7 +102,7 @@ export function NotificationBell() {
         ) : null}
       </Button>
       {open ? (
-        <div className="absolute right-0 top-12 z-50 w-[min(360px,calc(100vw-2rem))] rounded-md border bg-card shadow-lg">
+        <div className="absolute right-0 top-12 z-50 w-[min(360px,calc(100vw-2rem))] rounded-lg border border-border bg-popover shadow-panel">
           <div className="flex items-center justify-between gap-3 border-b px-3 py-2">
             <div className="text-sm font-medium">Notifications</div>
             <Button disabled={unreadCount === 0} size="sm" type="button" variant="ghost" onClick={() => void markAllRead()}>
@@ -121,7 +121,7 @@ export function NotificationBell() {
                 <button
                   key={item.id}
                   type="button"
-                  className={cn("block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-muted", !item.readAt && "bg-muted/60")}
+                  className={cn("block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-sidebar-hover", !item.readAt && "bg-primary/10")}
                   onClick={() => void markRead(item.id)}
                 >
                   <div className="flex items-center justify-between gap-2">

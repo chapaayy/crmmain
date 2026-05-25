@@ -53,13 +53,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           <div
             key={item.id}
             className={cn(
-              "flex items-start gap-3 rounded-lg border bg-card p-4 text-sm shadow-lg",
-              item.variant === "success" && "border-emerald-200",
-              item.variant === "error" && "border-destructive/30"
+              "flex items-start gap-3 rounded-lg border border-border bg-popover p-4 text-sm shadow-panel",
+              item.variant === "success" && "border-success/35",
+              item.variant === "error" && "border-destructive/35"
             )}
           >
             {item.variant === "success" ? (
-              <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" />
+              <CheckCircle2 className="mt-0.5 h-4 w-4 text-success" />
             ) : item.variant === "error" ? (
               <AlertCircle className="mt-0.5 h-4 w-4 text-destructive" />
             ) : (
