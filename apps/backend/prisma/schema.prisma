@@ -10,10 +10,79 @@ datasource db {
 enum RoleCode {
   SUPER_ADMIN
   ADMIN
+  HR_MANAGER
+  PAYROLL_MANAGER
   SALES_MANAGER
   WAREHOUSE_MANAGER
   ACCOUNTANT
   VIEWER
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACTOR
+  INTERN
+  OTHER
+}
+
+enum WorkScheduleType {
+  FIVE_TWO
+  TWO_TWO
+  SHIFT
+  FLEXIBLE
+  CUSTOM
+}
+
+enum WorkShiftStatus {
+  PLANNED
+  WORKED
+  MISSED
+  LATE
+  SICK
+  VACATION
+  DAY_OFF
+}
+
+enum TimeEntrySource {
+  MANUAL
+  SYSTEM
+  IMPORT
+}
+
+enum TimeEntryStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum PayrollPeriodStatus {
+  OPEN
+  CALCULATED
+  APPROVED
+  PAID
+  CLOSED
+}
+
+enum PayrollRunStatus {
+  DRAFT
+  CALCULATED
+  APPROVED
+  PAID
+  CANCELLED
+}
+
+enum PayrollAdjustmentType {
+  BONUS
+  PENALTY
+  CORRECTION
+}
+
+enum CommissionSource {
+  PAID_ORDERS
+  COMPLETED_ORDERS
+  PROFIT
 }
 
 enum CustomerStatus {
@@ -238,6 +307,11 @@ model User {
   updatedFileAssets       FileAsset[]          @relation("FileAssetUpdatedBy")
   createdSettings         Setting[]            @relation("SettingCreatedBy")
   updatedSettings         Setting[]            @relation("SettingUpdatedBy")
+  employeeProfile         EmployeeProfile?     @relation("EmployeeProfileUser")
+  approvedTimeEntries     TimeEntry[]          @relation("TimeEntryApprovedBy")
+  calculatedPayrollRuns   PayrollRun[]         @relation("PayrollRunCalculatedBy")
+  approvedPayrollRuns     PayrollRun[]         @relation("PayrollRunApprovedBy")
+  createdPayrollAdjustments PayrollAdjustment[] @relation("PayrollAdjustmentCreatedBy")
 
   @@index([primaryRole])
   @@index([locale])
@@ -262,6 +336,7 @@ model Role {
   deletedAt   DateTime?
   users       UserRole[]
   permissions RolePermission[]
+  commissionRules CommissionRule[]
 
   @@index([deletedAt])
 }
@@ -479,6 +554,7 @@ model ProductCategory {
   updatedBy   User?             @relation("ProductCategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   products    Product[]
   variants    ProductVariant[]
+  commissionRules CommissionRule[]
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   deletedAt   DateTime?
@@ -978,6 +1054,239 @@ model AuditLog {
   @@index([action])
   @@index([entityType, entityId])
   @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model EmployeeProfile {
+  id              String         @id @default(cuid())
+  userId          String         @unique
+  employeeNumber  String         @unique
+  firstName       String
+  lastName        String
+  middleName      String?
+  phone           String?
+  email           String?
+  position        String?
+  department      String?
+  employmentType  EmploymentType @default(FULL_TIME)
+  hireDate        DateTime?
+  fireDate        DateTime?
+  baseSalary      Decimal?       @db.Decimal(14, 2)
+  hourlyRate      Decimal?       @db.Decimal(14, 2)
+  shiftRate       Decimal?       @db.Decimal(14, 2)
+  commissionRate  Decimal?       @db.Decimal(5, 2)
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  deletedAt       DateTime?
+  user            User           @relation("EmployeeProfileUser", fields: [userId], references: [id], onDelete: Cascade)
+  schedules       WorkSchedule[]
+  shifts          WorkShift[]
+  timeEntries     TimeEntry[]
+  payrollLines    PayrollLine[]
+  adjustments     PayrollAdjustment[]
+  commissionRules CommissionRule[]
+
+  @@index([userId])
+  @@index([employeeNumber])
+  @@index([department])
+  @@index([position])
+  @@index([employmentType])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+model WorkSchedule {
+  id           String           @id @default(cuid())
+  employeeId   String
+  name         String
+  type         WorkScheduleType @default(FIVE_TWO)
+  workdayHours Decimal          @default(8) @db.Decimal(5, 2)
+  startsAt     DateTime?
+  endsAt       DateTime?
+  timezone     String           @default("Europe/Berlin")
+  isActive     Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  deletedAt    DateTime?
+  employee     EmployeeProfile  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  shifts       WorkShift[]
+
+  @@index([employeeId])
+  @@index([type])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+model WorkShift {
+  id           String          @id @default(cuid())
+  employeeId   String
+  scheduleId   String?
+  date         DateTime
+  plannedStart DateTime?
+  plannedEnd   DateTime?
+  actualStart  DateTime?
+  actualEnd    DateTime?
+  status       WorkShiftStatus @default(PLANNED)
+  comment      String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  deletedAt    DateTime?
+  employee     EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  schedule     WorkSchedule?   @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  @@index([employeeId])
+  @@index([scheduleId])
+  @@index([date])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model TimeEntry {
+  id            String          @id @default(cuid())
+  employeeId    String
+  date          DateTime
+  startedAt     DateTime
+  endedAt       DateTime?
+  breakMinutes  Int             @default(0)
+  totalMinutes  Int             @default(0)
+  source        TimeEntrySource @default(MANUAL)
+  approvedById  String?
+  approvedAt    DateTime?
+  status        TimeEntryStatus @default(DRAFT)
+  comment       String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  deletedAt     DateTime?
+  employee      EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  approvedBy    User?           @relation("TimeEntryApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([employeeId])
+  @@index([approvedById])
+  @@index([date])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model PayrollPeriod {
+  id          String              @id @default(cuid())
+  name        String
+  dateFrom    DateTime
+  dateTo      DateTime
+  status      PayrollPeriodStatus @default(OPEN)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  deletedAt   DateTime?
+  runs        PayrollRun[]
+  adjustments PayrollAdjustment[]
+
+  @@index([dateFrom])
+  @@index([dateTo])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model PayrollRun {
+  id               String           @id @default(cuid())
+  periodId         String
+  calculatedById   String?
+  approvedById     String?
+  calculatedAt     DateTime?
+  approvedAt       DateTime?
+  status           PayrollRunStatus @default(DRAFT)
+  totalGross       Decimal          @default(0) @db.Decimal(14, 2)
+  totalBonuses     Decimal          @default(0) @db.Decimal(14, 2)
+  totalPenalties   Decimal          @default(0) @db.Decimal(14, 2)
+  totalCommissions Decimal          @default(0) @db.Decimal(14, 2)
+  totalNet         Decimal          @default(0) @db.Decimal(14, 2)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?
+  period           PayrollPeriod    @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  calculatedBy     User?            @relation("PayrollRunCalculatedBy", fields: [calculatedById], references: [id], onDelete: SetNull)
+  approvedBy       User?            @relation("PayrollRunApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  lines            PayrollLine[]
+
+  @@index([periodId])
+  @@index([calculatedById])
+  @@index([approvedById])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model PayrollLine {
+  id                String          @id @default(cuid())
+  payrollRunId      String
+  employeeId        String
+  baseSalaryAmount  Decimal         @default(0) @db.Decimal(14, 2)
+  hourlyAmount      Decimal         @default(0) @db.Decimal(14, 2)
+  shiftAmount       Decimal         @default(0) @db.Decimal(14, 2)
+  overtimeAmount    Decimal         @default(0) @db.Decimal(14, 2)
+  bonusAmount       Decimal         @default(0) @db.Decimal(14, 2)
+  penaltyAmount     Decimal         @default(0) @db.Decimal(14, 2)
+  commissionAmount  Decimal         @default(0) @db.Decimal(14, 2)
+  grossAmount       Decimal         @default(0) @db.Decimal(14, 2)
+  netAmount         Decimal         @default(0) @db.Decimal(14, 2)
+  workedHours       Decimal         @default(0) @db.Decimal(10, 2)
+  workedDays        Decimal         @default(0) @db.Decimal(10, 2)
+  overtimeHours     Decimal         @default(0) @db.Decimal(10, 2)
+  comment           String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  deletedAt         DateTime?
+  payrollRun        PayrollRun      @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employee          EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([payrollRunId, employeeId])
+  @@index([payrollRunId])
+  @@index([employeeId])
+  @@index([deletedAt])
+}
+
+model PayrollAdjustment {
+  id          String                @id @default(cuid())
+  employeeId  String
+  periodId    String
+  type        PayrollAdjustmentType
+  amount      Decimal               @db.Decimal(14, 2)
+  reason      String
+  createdById String
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  deletedAt   DateTime?
+  employee    EmployeeProfile       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  period      PayrollPeriod         @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  createdBy   User                  @relation("PayrollAdjustmentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([employeeId])
+  @@index([periodId])
+  @@index([type])
+  @@index([createdById])
+  @@index([deletedAt])
+}
+
+model CommissionRule {
+  id                String           @id @default(cuid())
+  employeeId        String?
+  roleId            String?
+  name              String
+  source            CommissionSource @default(PAID_ORDERS)
+  percent           Decimal          @db.Decimal(5, 2)
+  minOrderAmount    Decimal?         @db.Decimal(14, 2)
+  productCategoryId String?
+  isActive          Boolean          @default(true)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  deletedAt         DateTime?
+  employee          EmployeeProfile? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  role              Role?            @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  productCategory   ProductCategory? @relation(fields: [productCategoryId], references: [id], onDelete: SetNull)
+
+  @@index([employeeId])
+  @@index([roleId])
+  @@index([source])
+  @@index([productCategoryId])
+  @@index([isActive])
   @@index([deletedAt])
 }
 

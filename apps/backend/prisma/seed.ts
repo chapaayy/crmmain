@@ -5,14 +5,23 @@ import {
   CustomerStatus,
   CustomerType,
   DiscountType,
+  CommissionSource,
+  EmploymentType,
   LeadStatus,
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
+  PayrollAdjustmentType,
+  PayrollPeriodStatus,
+  PayrollRunStatus,
   Prisma,
   PrismaClient,
   RoleCode,
-  StockMovementType
+  StockMovementType,
+  TimeEntrySource,
+  TimeEntryStatus,
+  WorkScheduleType,
+  WorkShiftStatus
 } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 
@@ -54,12 +63,27 @@ const permissions = [
   ["analytics.read", "Read analytics", "analytics", "read"],
   ["analytics.read_finance", "Read financial analytics", "analytics", "read_finance"],
   ["settings.manage", "Manage settings", "settings", "manage"],
-  ["audit_logs.read", "Read audit logs", "audit_logs", "read"]
+  ["audit_logs.read", "Read audit logs", "audit_logs", "read"],
+  ["employees.read", "Read employees", "employees", "read"],
+  ["employees.create", "Create employees", "employees", "create"],
+  ["employees.update", "Update employees", "employees", "update"],
+  ["employees.delete", "Delete employees", "employees", "delete"],
+  ["attendance.read", "Read attendance", "attendance", "read"],
+  ["attendance.manage", "Manage attendance", "attendance", "manage"],
+  ["attendance.own", "Read own attendance", "attendance", "own"],
+  ["payroll.read", "Read payroll", "payroll", "read"],
+  ["payroll.manage", "Manage payroll", "payroll", "manage"],
+  ["payroll.approve", "Approve payroll", "payroll", "approve"],
+  ["payroll.export", "Export payroll", "payroll", "export"],
+  ["salary_rules.read", "Read salary rules", "salary_rules", "read"],
+  ["salary_rules.manage", "Manage salary rules", "salary_rules", "manage"]
 ] as const;
 
 const roleDescriptions: Record<RoleCode, string> = {
   SUPER_ADMIN: "Full system access with all permissions.",
   ADMIN: "Administrative access for CRM configuration and user management.",
+  HR_MANAGER: "Employee profiles, schedules, attendance, and payroll preparation.",
+  PAYROLL_MANAGER: "Payroll calculation, salary rules, approvals, and exports.",
   SALES_MANAGER: "Sales pipeline, customers, leads, orders, documents, and tasks.",
   WAREHOUSE_MANAGER: "Warehouse, stock, product, and shipment operations.",
   ACCOUNTANT: "Payments, invoices, documents, and order finance visibility.",
@@ -79,14 +103,37 @@ const defaultProductCategories = [
 ] as const;
 
 const adminPermissionKeys = ["users.read", "roles.read", "audit_logs.read"];
+const hiddenReadPermissionKeys = ["payroll.read", "salary_rules.read"];
 const readPermissions = permissions
   .map(([key]) => key)
-  .filter((key) => key.endsWith(".read") && !adminPermissionKeys.includes(key));
+  .filter((key) => key.endsWith(".read") && !adminPermissionKeys.includes(key) && !hiddenReadPermissionKeys.includes(key));
 const permissionKeys = permissions.map(([key]) => key);
 
 const rolePermissionKeys: Record<RoleCode, string[]> = {
   SUPER_ADMIN: permissions.map(([key]) => key),
   ADMIN: permissions.map(([key]) => key),
+  HR_MANAGER: [
+    "employees.read",
+    "employees.create",
+    "employees.update",
+    "employees.delete",
+    "attendance.read",
+    "attendance.manage",
+    "attendance.own",
+    "payroll.read",
+    "payroll.manage",
+    "salary_rules.read"
+  ],
+  PAYROLL_MANAGER: [
+    "payroll.read",
+    "payroll.manage",
+    "payroll.approve",
+    "payroll.export",
+    "salary_rules.read",
+    "salary_rules.manage",
+    "attendance.read",
+    "employees.read"
+  ],
   SALES_MANAGER: [
     "customers.read",
     "customers.create",
@@ -104,6 +151,7 @@ const rolePermissionKeys: Record<RoleCode, string[]> = {
     "tasks.read",
     "tasks.create",
     "tasks.update",
+    "attendance.own",
     "analytics.read"
   ],
   WAREHOUSE_MANAGER: [
@@ -123,6 +171,10 @@ const rolePermissionKeys: Record<RoleCode, string[]> = {
     "orders.read",
     "payments.read",
     "payments.manage",
+    "payroll.read",
+    "payroll.manage",
+    "payroll.export",
+    "employees.read",
     "documents.read",
     "documents.manage",
     "tasks.read",
@@ -881,6 +933,308 @@ async function seedDemoData(actorId?: string) {
   });
 }
 
+async function seedHrDemoData(actorId?: string) {
+  if (!actorId) {
+    return;
+  }
+
+  const user = await prisma.user.findFirst({
+    where: { id: actorId, deletedAt: null },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      firstName: true,
+      lastName: true
+    }
+  });
+
+  if (!user) {
+    return;
+  }
+
+  const now = new Date();
+  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  const workDate = new Date(now.getFullYear(), now.getMonth(), Math.min(5, periodEnd.getDate()));
+  const startedAt = new Date(workDate);
+  startedAt.setHours(9, 0, 0, 0);
+  const endedAt = new Date(workDate);
+  endedAt.setHours(18, 0, 0, 0);
+
+  const employee = await prisma.employeeProfile.upsert({
+    where: { employeeNumber: "EMP-0001" },
+    update: {
+      userId: user.id,
+      firstName: user.firstName ?? user.name.split(" ")[0] ?? "System",
+      lastName: (user.lastName ?? user.name.split(" ").slice(1).join(" ")) || "Admin",
+      email: user.email,
+      position: "CRM administrator",
+      department: "Management",
+      employmentType: EmploymentType.FULL_TIME,
+      baseSalary: decimal(120000),
+      hourlyRate: decimal(850),
+      shiftRate: decimal(5000),
+      commissionRate: decimal(2),
+      isActive: true,
+      deletedAt: null
+    },
+    create: {
+      userId: user.id,
+      employeeNumber: "EMP-0001",
+      firstName: user.firstName ?? user.name.split(" ")[0] ?? "System",
+      lastName: (user.lastName ?? user.name.split(" ").slice(1).join(" ")) || "Admin",
+      email: user.email,
+      position: "CRM administrator",
+      department: "Management",
+      employmentType: EmploymentType.FULL_TIME,
+      hireDate: periodStart,
+      baseSalary: decimal(120000),
+      hourlyRate: decimal(850),
+      shiftRate: decimal(5000),
+      commissionRate: decimal(2)
+    }
+  });
+  const schedule = await upsertFirst(
+    () => prisma.workSchedule.findFirst({ where: { employeeId: employee.id, name: "Standard 5/2", deletedAt: null } }),
+    (id) =>
+      prisma.workSchedule.update({
+        where: { id },
+        data: {
+          type: WorkScheduleType.FIVE_TWO,
+          workdayHours: decimal(8),
+          startsAt: startedAt,
+          endsAt: endedAt,
+          timezone: process.env.PAYROLL_TIMEZONE ?? "Europe/Berlin",
+          isActive: true
+        }
+      }),
+    () =>
+      prisma.workSchedule.create({
+        data: {
+          employeeId: employee.id,
+          name: "Standard 5/2",
+          type: WorkScheduleType.FIVE_TWO,
+          workdayHours: decimal(8),
+          startsAt: startedAt,
+          endsAt: endedAt,
+          timezone: process.env.PAYROLL_TIMEZONE ?? "Europe/Berlin"
+        }
+      })
+  );
+
+  await upsertFirst(
+    () => prisma.workShift.findFirst({ where: { employeeId: employee.id, date: workDate, deletedAt: null } }),
+    (id) =>
+      prisma.workShift.update({
+        where: { id },
+        data: {
+          scheduleId: schedule.id,
+          plannedStart: startedAt,
+          plannedEnd: endedAt,
+          actualStart: startedAt,
+          actualEnd: endedAt,
+          status: WorkShiftStatus.WORKED
+        }
+      }),
+    () =>
+      prisma.workShift.create({
+        data: {
+          employeeId: employee.id,
+          scheduleId: schedule.id,
+          date: workDate,
+          plannedStart: startedAt,
+          plannedEnd: endedAt,
+          actualStart: startedAt,
+          actualEnd: endedAt,
+          status: WorkShiftStatus.WORKED,
+          comment: "Demo worked shift"
+        }
+      })
+  );
+
+  await upsertFirst(
+    () => prisma.timeEntry.findFirst({ where: { employeeId: employee.id, date: workDate, deletedAt: null } }),
+    (id) =>
+      prisma.timeEntry.update({
+        where: { id },
+        data: {
+          startedAt,
+          endedAt,
+          breakMinutes: 60,
+          totalMinutes: 480,
+          source: TimeEntrySource.MANUAL,
+          approvedById: actorId,
+          approvedAt: now,
+          status: TimeEntryStatus.APPROVED,
+          comment: "Demo approved time"
+        }
+      }),
+    () =>
+      prisma.timeEntry.create({
+        data: {
+          employeeId: employee.id,
+          date: workDate,
+          startedAt,
+          endedAt,
+          breakMinutes: 60,
+          totalMinutes: 480,
+          source: TimeEntrySource.MANUAL,
+          approvedById: actorId,
+          approvedAt: now,
+          status: TimeEntryStatus.APPROVED,
+          comment: "Demo approved time"
+        }
+      })
+  );
+
+  const periodName = `Demo payroll ${periodStart.toISOString().slice(0, 7)}`;
+  const period = await upsertFirst(
+    () => prisma.payrollPeriod.findFirst({ where: { name: periodName, deletedAt: null } }),
+    (id) =>
+      prisma.payrollPeriod.update({
+        where: { id },
+        data: {
+          dateFrom: periodStart,
+          dateTo: periodEnd,
+          status: PayrollPeriodStatus.CALCULATED
+        }
+      }),
+    () =>
+      prisma.payrollPeriod.create({
+        data: {
+          name: periodName,
+          dateFrom: periodStart,
+          dateTo: periodEnd,
+          status: PayrollPeriodStatus.CALCULATED
+        }
+      })
+  );
+
+  await upsertFirst(
+    () => prisma.payrollAdjustment.findFirst({ where: { employeeId: employee.id, periodId: period.id, reason: "Demo performance bonus", deletedAt: null } }),
+    (id) =>
+      prisma.payrollAdjustment.update({
+        where: { id },
+        data: {
+          type: PayrollAdjustmentType.BONUS,
+          amount: decimal(10000),
+          createdById: actorId
+        }
+      }),
+    () =>
+      prisma.payrollAdjustment.create({
+        data: {
+          employeeId: employee.id,
+          periodId: period.id,
+          type: PayrollAdjustmentType.BONUS,
+          amount: decimal(10000),
+          reason: "Demo performance bonus",
+          createdById: actorId
+        }
+      })
+  );
+
+  await upsertFirst(
+    () => prisma.commissionRule.findFirst({ where: { employeeId: employee.id, name: "Demo manager commission", deletedAt: null } }),
+    (id) =>
+      prisma.commissionRule.update({
+        where: { id },
+        data: {
+          source: CommissionSource.PAID_ORDERS,
+          percent: decimal(2),
+          isActive: true
+        }
+      }),
+    () =>
+      prisma.commissionRule.create({
+        data: {
+          employeeId: employee.id,
+          name: "Demo manager commission",
+          source: CommissionSource.PAID_ORDERS,
+          percent: decimal(2),
+          isActive: true
+        }
+      })
+  );
+
+  const run = await upsertFirst(
+    () => prisma.payrollRun.findFirst({ where: { periodId: period.id, deletedAt: null } }),
+    (id) =>
+      prisma.payrollRun.update({
+        where: { id },
+        data: {
+          calculatedById: actorId,
+          calculatedAt: now,
+          status: PayrollRunStatus.CALCULATED,
+          totalGross: decimal(141800),
+          totalBonuses: decimal(10000),
+          totalPenalties: decimal(0),
+          totalCommissions: decimal(0),
+          totalNet: decimal(141800)
+        }
+      }),
+    () =>
+      prisma.payrollRun.create({
+        data: {
+          periodId: period.id,
+          calculatedById: actorId,
+          calculatedAt: now,
+          status: PayrollRunStatus.CALCULATED,
+          totalGross: decimal(141800),
+          totalBonuses: decimal(10000),
+          totalPenalties: decimal(0),
+          totalCommissions: decimal(0),
+          totalNet: decimal(141800)
+        }
+      })
+  );
+
+  await prisma.payrollLine.upsert({
+    where: {
+      payrollRunId_employeeId: {
+        payrollRunId: run.id,
+        employeeId: employee.id
+      }
+    },
+    update: {
+      baseSalaryAmount: decimal(120000),
+      hourlyAmount: decimal(6800),
+      shiftAmount: decimal(5000),
+      bonusAmount: decimal(10000),
+      grossAmount: decimal(141800),
+      netAmount: decimal(141800),
+      workedHours: decimal(8),
+      workedDays: decimal(1),
+      comment: "Demo payroll line",
+      deletedAt: null
+    },
+    create: {
+      payrollRunId: run.id,
+      employeeId: employee.id,
+      baseSalaryAmount: decimal(120000),
+      hourlyAmount: decimal(6800),
+      shiftAmount: decimal(5000),
+      bonusAmount: decimal(10000),
+      grossAmount: decimal(141800),
+      netAmount: decimal(141800),
+      workedHours: decimal(8),
+      workedDays: decimal(1),
+      comment: "Demo payroll line"
+    }
+  });
+}
+
+async function upsertFirst<T extends { id: string }>(
+  find: () => Promise<T | null>,
+  update: (id: string) => Promise<T>,
+  create: () => Promise<T>
+) {
+  const existing = await find();
+
+  return existing ? update(existing.id) : create();
+}
+
 function decimal(value: number) {
   return new Prisma.Decimal(value);
 }
@@ -907,6 +1261,7 @@ async function main() {
   await seedProductCategories();
   const actorId = await seedSuperAdmin(roleIds);
   await seedDemoData(actorId);
+  await seedHrDemoData(actorId);
 }
 
 main()

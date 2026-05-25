@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { DocumentType, LeadStatus, OrderStatus, PaymentStatus, Prisma, RoleCode, StockMovementType, TaskStatus } from "@prisma/client";
+import { DocumentType, LeadStatus, OrderStatus, PaymentStatus, PayrollRunStatus, Prisma, RoleCode, StockMovementType, TaskStatus, TimeEntryStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AnalyticsQueryDto } from "./dto/analytics-query.dto";
 
@@ -42,13 +42,14 @@ export class AnalyticsService {
 
   async dashboard(query: AnalyticsQueryDto, actorId: string) {
     const financeVisible = await this.canViewFinance(actorId);
-    const [orders, sales, leads, products, managers, warehouse] = await Promise.all([
+    const [orders, sales, leads, products, managers, warehouse, payroll] = await Promise.all([
       this.orders(query),
       this.buildSales(query, financeVisible),
       this.leads(query),
       this.buildProducts(query, financeVisible),
       this.buildManagers(query, financeVisible),
-      this.warehouse(query)
+      this.warehouse(query),
+      this.payroll(query, actorId)
     ]);
 
     return {
@@ -60,7 +61,8 @@ export class AnalyticsService {
       leads,
       products,
       managers,
-      warehouse
+      warehouse,
+      payroll
     };
   }
 
@@ -174,6 +176,95 @@ export class AnalyticsService {
       available: roundQuantity(serializedStock.reduce((sum, item) => sum + item.available, 0)),
       lowStock,
       shipmentsToday
+    };
+  }
+
+  private async payroll(query: AnalyticsQueryDto, actorId: string) {
+    const visible = await this.canViewPayroll(actorId);
+
+    if (!visible) {
+      return {
+        visible,
+        salaryFund: null,
+        accrued: null,
+        bonuses: null,
+        penalties: null,
+        commissions: null,
+        net: null,
+        paid: null,
+        unpaid: null,
+        workedHours: null,
+        overtimeHours: null,
+        unapprovedHours: null
+      };
+    }
+
+    const periodWhere = this.buildPayrollPeriodWhere(query);
+    const [employees, runs, unapprovedEntries] = await Promise.all([
+      this.prisma.employeeProfile.findMany({
+        where: { deletedAt: null, isActive: true },
+        select: { baseSalary: true }
+      }),
+      this.prisma.payrollRun.findMany({
+        where: {
+          deletedAt: null,
+          status: { not: PayrollRunStatus.CANCELLED },
+          period: periodWhere
+        },
+        select: {
+          status: true,
+          totalGross: true,
+          totalBonuses: true,
+          totalPenalties: true,
+          totalCommissions: true,
+          totalNet: true,
+          lines: {
+            where: { deletedAt: null },
+            select: {
+              workedHours: true,
+              overtimeHours: true
+            }
+          }
+        }
+      }),
+      this.prisma.timeEntry.findMany({
+        where: {
+          deletedAt: null,
+          status: { in: [TimeEntryStatus.DRAFT, TimeEntryStatus.SUBMITTED] },
+          ...(this.dateFilter(query) ? { date: this.dateFilter(query) } : {})
+        },
+        select: { totalMinutes: true }
+      })
+    ]);
+    const salaryFund = roundMoney(employees.reduce((sum, employee) => sum + decimalToNumber(employee.baseSalary), 0));
+    const accrued = roundMoney(runs.reduce((sum, run) => sum + decimalToNumber(run.totalGross), 0));
+    const bonuses = roundMoney(runs.reduce((sum, run) => sum + decimalToNumber(run.totalBonuses), 0));
+    const penalties = roundMoney(runs.reduce((sum, run) => sum + decimalToNumber(run.totalPenalties), 0));
+    const commissions = roundMoney(runs.reduce((sum, run) => sum + decimalToNumber(run.totalCommissions), 0));
+    const net = roundMoney(runs.reduce((sum, run) => sum + decimalToNumber(run.totalNet), 0));
+    const paid = roundMoney(
+      runs.reduce((sum, run) => (run.status === PayrollRunStatus.PAID ? sum + decimalToNumber(run.totalNet) : sum), 0)
+    );
+    const workedHours = roundQuantity(
+      runs.reduce((sum, run) => sum + run.lines.reduce((lineSum, line) => lineSum + decimalToNumber(line.workedHours), 0), 0)
+    );
+    const overtimeHours = roundQuantity(
+      runs.reduce((sum, run) => sum + run.lines.reduce((lineSum, line) => lineSum + decimalToNumber(line.overtimeHours), 0), 0)
+    );
+
+    return {
+      visible,
+      salaryFund,
+      accrued,
+      bonuses,
+      penalties,
+      commissions,
+      net,
+      paid,
+      unpaid: roundMoney(net - paid),
+      workedHours,
+      overtimeHours,
+      unapprovedHours: roundQuantity(unapprovedEntries.reduce((sum, entry) => sum + entry.totalMinutes / 60, 0))
     };
   }
 
@@ -630,6 +721,74 @@ export class AnalyticsService {
             !permission.deletedAt && ["payments.read", "analytics.read_finance"].includes(permission.key)
           )
     );
+  }
+
+  private async canViewPayroll(actorId: string) {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        id: actorId,
+        isActive: true,
+        deletedAt: null
+      },
+      select: {
+        primaryRole: true,
+        roles: {
+          where: { deletedAt: null },
+          select: {
+            role: {
+              select: {
+                code: true,
+                deletedAt: true,
+                permissions: {
+                  where: { deletedAt: null },
+                  select: {
+                    permission: {
+                      select: {
+                        key: true,
+                        deletedAt: true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      return false;
+    }
+
+    const roleCodes = new Set(user.roles.filter(({ role }) => !role.deletedAt).map(({ role }) => role.code));
+
+    if (user.primaryRole === RoleCode.SUPER_ADMIN || roleCodes.has(RoleCode.SUPER_ADMIN)) {
+      return true;
+    }
+
+    return user.roles.some(({ role }) =>
+      role.deletedAt
+        ? false
+        : role.permissions.some(({ permission }) =>
+            !permission.deletedAt && ["payroll.read", "payroll.manage"].includes(permission.key)
+          )
+    );
+  }
+
+  private buildPayrollPeriodWhere(query: AnalyticsQueryDto): Prisma.PayrollPeriodWhereInput {
+    const dateFrom = query.dateFrom ? startOfDay(new Date(query.dateFrom)) : undefined;
+    const dateTo = query.dateTo ? endOfDay(new Date(query.dateTo)) : undefined;
+
+    return {
+      deletedAt: null,
+      ...(dateFrom || dateTo
+        ? {
+            dateFrom: dateTo ? { lte: dateTo } : undefined,
+            dateTo: dateFrom ? { gte: dateFrom } : undefined
+          }
+        : {})
+    };
   }
 
   private normalizeFilters(query: AnalyticsQueryDto) {

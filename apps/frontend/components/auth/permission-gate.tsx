@@ -10,7 +10,7 @@ export function PermissionGate({
   permission,
   children
 }: {
-  permission?: string;
+  permission?: string | string[];
   children: React.ReactNode;
 }) {
   const auth = useAuth();

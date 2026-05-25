@@ -10,6 +10,8 @@ import { UpdateRoleDto } from "./dto/update-role.dto";
 const rolePriority: RoleCode[] = [
   RoleCode.SUPER_ADMIN,
   RoleCode.ADMIN,
+  RoleCode.PAYROLL_MANAGER,
+  RoleCode.HR_MANAGER,
   RoleCode.SALES_MANAGER,
   RoleCode.WAREHOUSE_MANAGER,
   RoleCode.ACCOUNTANT,

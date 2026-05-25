@@ -21,7 +21,7 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   logoutAll: () => Promise<void>;
   updateLocale: (locale: Locale) => Promise<void>;
-  hasPermission: (permission?: string) => boolean;
+  hasPermission: (permission?: string | string[]) => boolean;
 }
 
 interface MeResponse {
@@ -218,7 +218,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const hasPermission = useCallback(
-    (permission?: string) => {
+    (permission?: string | string[]) => {
       if (!permission) {
         return true;
       }
@@ -233,7 +233,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
 
-      return Boolean(user.permissions?.some((item) => item.key === permission));
+      const checkOne = (item: string) => Boolean(user.permissions?.some((permissionItem) => permissionItem.key === item));
+
+      if (Array.isArray(permission)) {
+        return permission.some((item) => checkOne(item));
+      }
+
+      return checkOne(permission);
     },
     [user]
   );

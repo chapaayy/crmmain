@@ -12,7 +12,7 @@ export function SectionScreen({
   permission
 }: {
   title: string;
-  permission?: string;
+  permission?: string | string[];
 }) {
   const { toast } = useToast();
 
@@ -52,7 +52,7 @@ export function SectionScreen({
               </div>
               <div className="rounded-md border p-3">
                 <div className="text-sm text-muted-foreground">Permission</div>
-                <div className="mt-2 text-sm font-medium">{permission ?? "authenticated"}</div>
+                <div className="mt-2 text-sm font-medium">{Array.isArray(permission) ? permission.join(", ") : permission ?? "authenticated"}</div>
               </div>
             </div>
             <Button

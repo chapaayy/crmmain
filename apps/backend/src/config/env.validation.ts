@@ -1,5 +1,5 @@
 import { plainToInstance, Transform } from "class-transformer";
-import { IsInt, IsNotEmpty, IsOptional, IsString, IsUrl, Min, validateSync } from "class-validator";
+import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUrl, Min, validateSync } from "class-validator";
 
 class EnvironmentVariables {
   @IsString()
@@ -46,6 +46,34 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   UPLOADS_DIR?: string;
+
+  @IsOptional()
+  @IsString()
+  PAYROLL_CURRENCY?: string;
+
+  @IsOptional()
+  @IsString()
+  PAYROLL_TIMEZONE?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === undefined || value === "" ? undefined : Number(value)))
+  @IsInt()
+  @Min(1)
+  PAYROLL_DEFAULT_WORKDAY_HOURS?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === undefined || value === "" ? undefined : Number(value)))
+  @IsNumber()
+  @Min(0)
+  PAYROLL_OVERTIME_MULTIPLIER?: number;
+
+  @IsOptional()
+  @IsString()
+  PAYROLL_ENABLE_SALES_COMMISSION?: string;
+
+  @IsOptional()
+  @IsString()
+  PAYROLL_ENABLE_ATTENDANCE?: string;
 
   @IsOptional()
   @IsString()

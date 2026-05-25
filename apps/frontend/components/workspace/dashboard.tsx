@@ -7,6 +7,8 @@ import {
   Banknote,
   Boxes,
   ClipboardList,
+  Clock3,
+  HandCoins,
   Loader2,
   PackageSearch,
   Percent,
@@ -118,6 +120,20 @@ interface AnalyticsDashboard {
       threshold: number;
     }>;
   };
+  payroll?: {
+    visible: boolean;
+    salaryFund: number | null;
+    accrued: number | null;
+    bonuses: number | null;
+    penalties: number | null;
+    commissions: number | null;
+    net: number | null;
+    paid: number | null;
+    unpaid: number | null;
+    workedHours: number | null;
+    overtimeHours: number | null;
+    unapprovedHours: number | null;
+  };
 }
 
 const statusLabels: Record<string, string> = {
@@ -148,7 +164,9 @@ export function Dashboard() {
     categoryId: ""
   });
   const canReadFinance = auth.hasPermission("payments.read") || auth.hasPermission("analytics.read_finance");
+  const canReadPayroll = auth.hasPermission(["payroll.read", "payroll.manage"]);
   const showFinance = Boolean(data?.financeVisible && canReadFinance);
+  const showPayroll = Boolean(data?.payroll?.visible && canReadPayroll);
   const query = useMemo(() => {
     const params = new URLSearchParams();
 
@@ -240,6 +258,39 @@ export function Dashboard() {
             note={`${formatQuantity(data?.warehouse.reserved ?? 0)} reserved`}
           />
         </section>
+
+        {canReadPayroll ? (
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricCard
+              icon={HandCoins}
+              label="Фонд оплаты труда"
+              loading={loading}
+              value={showPayroll ? formatMoney(data?.payroll?.salaryFund ?? 0) : "Hidden"}
+              note={showPayroll ? `${formatMoney(data?.payroll?.net ?? 0)} к выплате` : "Зарплата скрыта"}
+            />
+            <MetricCard
+              icon={Banknote}
+              label="Начислено"
+              loading={loading}
+              value={showPayroll ? formatMoney(data?.payroll?.accrued ?? 0) : "Hidden"}
+              note={showPayroll ? `${formatMoney(data?.payroll?.paid ?? 0)} выплачено` : "Зарплата скрыта"}
+            />
+            <MetricCard
+              icon={Percent}
+              label="Комиссии"
+              loading={loading}
+              value={showPayroll ? formatMoney(data?.payroll?.commissions ?? 0) : "Hidden"}
+              note={showPayroll ? `${formatMoney(data?.payroll?.bonuses ?? 0)} бонусы / ${formatMoney(data?.payroll?.penalties ?? 0)} штрафы` : "Зарплата скрыта"}
+            />
+            <MetricCard
+              icon={Clock3}
+              label="Отработанные часы"
+              loading={loading}
+              value={showPayroll ? formatQuantity(data?.payroll?.workedHours ?? 0) : "Hidden"}
+              note={showPayroll ? `${formatQuantity(data?.payroll?.overtimeHours ?? 0)} переработки / ${formatQuantity(data?.payroll?.unapprovedHours ?? 0)} не утверждено` : "Зарплата скрыта"}
+            />
+          </section>
+        ) : null}
 
         <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
           <Card>

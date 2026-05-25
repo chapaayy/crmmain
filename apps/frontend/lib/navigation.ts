@@ -1,8 +1,11 @@
 import {
   BarChart3,
+  CalendarClock,
   ClipboardList,
+  Clock3,
   FileText,
   Gauge,
+  HandCoins,
   Landmark,
   LayoutList,
   Package,
@@ -10,6 +13,7 @@ import {
   Settings,
   ShieldCheck,
   Users,
+  UserRoundCheck,
   Warehouse,
   UserCog,
   ScrollText
@@ -19,7 +23,7 @@ import type { LucideIcon } from "lucide-react";
 export interface MenuItem {
   label: string;
   href: string;
-  permission?: string;
+  permission?: string | string[];
   icon: LucideIcon;
   adminOnly?: boolean;
 }
@@ -31,6 +35,12 @@ export const menuItems: MenuItem[] = [
   { label: "Leads", href: "/leads", permission: "leads.read", icon: LayoutList },
   { label: "Products", href: "/products", permission: "products.read", icon: Package },
   { label: "Warehouse", href: "/warehouse", permission: "warehouse.read", icon: Warehouse },
+  { label: "Сотрудники", href: "/employees", permission: "employees.read", icon: UserRoundCheck },
+  { label: "Рабочее время", href: "/attendance", permission: ["attendance.read", "attendance.manage", "attendance.own"], icon: Clock3 },
+  { label: "Табель", href: "/attendance/timesheet", permission: ["attendance.read", "attendance.manage", "attendance.own"], icon: CalendarClock },
+  { label: "Зарплата", href: "/payroll", permission: ["payroll.read", "payroll.manage"], icon: HandCoins },
+  { label: "Бонусы / штрафы", href: "/payroll/adjustments", permission: ["payroll.read", "payroll.manage"], icon: ReceiptText },
+  { label: "Правила комиссий", href: "/payroll/commission-rules", permission: ["salary_rules.read", "salary_rules.manage"], icon: CalendarClock },
   { label: "Payments", href: "/payments", permission: "payments.read", icon: Landmark },
   { label: "Documents", href: "/documents", permission: "documents.read", icon: FileText },
   { label: "Tasks", href: "/tasks", permission: "tasks.read", icon: ReceiptText },
