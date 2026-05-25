@@ -9,18 +9,17 @@ import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { WorkspaceMode } from "@/lib/domains";
 import { localeLabels, supportedLocales } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n";
 import { menuItems } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { getActiveHref, getVisibleMenuItems, isActive } from "./sidebar";
 
-export function Topbar({ mode, onOpenSidebar }: { mode: WorkspaceMode; onOpenSidebar: () => void }) {
+export function Topbar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
   const pathname = usePathname();
   const auth = useAuth();
   const title = useMemo(() => getCurrentTitle(pathname), [pathname]);
-  const visibleItems = getVisibleMenuItems(auth, mode);
+  const visibleItems = getVisibleMenuItems(auth);
   const crumbs = title === "Dashboard" ? ["Overview", title] : ["Workspace", title];
 
   return (
@@ -49,7 +48,7 @@ export function Topbar({ mode, onOpenSidebar }: { mode: WorkspaceMode; onOpenSid
 
         <MobileQuickNav items={visibleItems} pathname={pathname} />
 
-        <Badge variant={mode === "admin" ? "default" : "secondary"} className="hidden gap-1.5 md:inline-flex">
+        <Badge variant="secondary" className="hidden gap-1.5 md:inline-flex">
           <ShieldCheck className="h-3.5 w-3.5" />
           {auth.user?.primaryRole ?? auth.user?.role ?? "USER"}
         </Badge>

@@ -88,9 +88,7 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
         NEXT_PUBLIC_CRM_URL: ${NEXT_PUBLIC_CRM_URL}
-        NEXT_PUBLIC_ADMIN_URL: ${NEXT_PUBLIC_ADMIN_URL}
         CRM_DOMAIN: ${CRM_DOMAIN}
-        ADMIN_DOMAIN: ${ADMIN_DOMAIN}
         API_DOMAIN: ${API_DOMAIN}
     restart: unless-stopped
     logging: *default-logging
@@ -100,9 +98,7 @@ services:
       PORT: ${FRONTEND_PORT}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
       NEXT_PUBLIC_CRM_URL: ${NEXT_PUBLIC_CRM_URL}
-      NEXT_PUBLIC_ADMIN_URL: ${NEXT_PUBLIC_ADMIN_URL}
       CRM_DOMAIN: ${CRM_DOMAIN}
-      ADMIN_DOMAIN: ${ADMIN_DOMAIN}
       API_DOMAIN: ${API_DOMAIN}
     expose:
       - "${FRONTEND_PORT}"

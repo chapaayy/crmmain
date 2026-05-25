@@ -27,20 +27,17 @@ Replace all placeholder secrets before deploying:
 Set the production domains:
 
 - `CRM_DOMAIN`
-- `ADMIN_DOMAIN`
 - `API_DOMAIN`
 - `API_PUBLIC_URL=https://api.example.com`
 - `NEXT_PUBLIC_API_URL=https://api.example.com`
 - `NEXT_PUBLIC_CRM_URL=https://crm.example.com`
-- `NEXT_PUBLIC_ADMIN_URL=https://admin.crm.example.com`
-- `CORS_ORIGINS=https://crm.example.com,https://admin.crm.example.com`
+- `CORS_ORIGINS=https://crm.example.com`
 
 ## DNS And TLS
 
 Point these DNS records to the server before starting Caddy:
 
 - `CRM_DOMAIN`
-- `ADMIN_DOMAIN`
 - `API_DOMAIN`
 
 Caddy obtains and renews HTTPS certificates automatically. Ports `80` and `443` must be reachable from the internet.

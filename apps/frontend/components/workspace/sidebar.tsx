@@ -7,26 +7,22 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { menuGroups, menuItems } from "@/lib/navigation";
 import type { MenuItem } from "@/lib/navigation";
-import type { WorkspaceMode } from "@/lib/domains";
 import { cn } from "@/lib/utils";
 
 export function Sidebar({
-  mode,
   open,
   onClose
 }: {
-  mode: WorkspaceMode;
   open?: boolean;
   onClose?: () => void;
 }) {
   const pathname = usePathname();
   const auth = useAuth();
-  const items = getVisibleMenuItems(auth, mode);
+  const items = getVisibleMenuItems(auth);
 
   const content = (
     <SidebarContent
       items={items}
-      mode={mode}
       pathname={pathname}
       onNavigate={onClose}
       onClose={onClose}
@@ -58,13 +54,11 @@ export function Sidebar({
 
 export function SidebarContent({
   items,
-  mode,
   pathname,
   onNavigate,
   onClose
 }: {
   items: MenuItem[];
-  mode: WorkspaceMode;
   pathname: string;
   onNavigate?: () => void;
   onClose?: () => void;
@@ -79,7 +73,7 @@ export function SidebarContent({
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold text-foreground">CRM Polybags</div>
-          <div className="truncate text-xs text-muted-foreground">{mode === "admin" ? "Admin panel" : "Workspace"}</div>
+          <div className="truncate text-xs text-muted-foreground">Workspace</div>
         </div>
         <Button className="lg:hidden" size="icon" type="button" variant="ghost" onClick={onClose}>
           <X className="h-4 w-4" />
@@ -145,7 +139,7 @@ export function SidebarItem({
   );
 }
 
-export function getVisibleMenuItems(auth: ReturnType<typeof useAuth>, mode: WorkspaceMode) {
+export function getVisibleMenuItems(auth: ReturnType<typeof useAuth>) {
   const isAdminRole = auth.user
     ? [auth.user.primaryRole, auth.user.role, ...(auth.user.roles?.map((role) => role.code) ?? [])].some(
         (role) => role === "SUPER_ADMIN" || role === "ADMIN"
@@ -153,10 +147,6 @@ export function getVisibleMenuItems(auth: ReturnType<typeof useAuth>, mode: Work
     : false;
 
   return menuItems.filter((item) => {
-    if (mode === "crm" && item.adminOnly) {
-      return false;
-    }
-
     if (item.adminOnly && !isAdminRole) {
       return false;
     }

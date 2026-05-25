@@ -11,15 +11,6 @@ https://{$CRM_DOMAIN} {
 	reverse_proxy frontend:{$FRONTEND_PORT}
 }
 
-https://{$ADMIN_DOMAIN} {
-	encode zstd gzip
-	header {
-		X-Content-Type-Options nosniff
-		Referrer-Policy strict-origin-when-cross-origin
-	}
-	reverse_proxy frontend:{$FRONTEND_PORT}
-}
-
 https://{$API_DOMAIN} {
 	encode zstd gzip
 	header {
