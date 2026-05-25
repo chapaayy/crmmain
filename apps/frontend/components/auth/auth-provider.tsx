@@ -8,7 +8,7 @@ import type { Locale } from "@/lib/i18n";
 import type { AuthSession, CurrentUser } from "@/lib/types";
 import { useToast } from "@/components/toast/toast-provider";
 
-type AuthStatus = "idle" | "loading" | "authenticated" | "unauthenticated";
+type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
 interface AuthContextValue {
   status: AuthStatus;
@@ -35,11 +35,12 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { toast } = useToast();
-  const [status, setStatus] = useState<AuthStatus>("idle");
+  const [status, setStatus] = useState<AuthStatus>("loading");
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [locale, setLocale] = useState<Locale>(() => getStoredLocale());
   const accessTokenRef = useRef<string | null>(null);
   const bootstrapPromiseRef = useRef<Promise<boolean> | null>(null);
+  const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
 
   const setSession = useCallback((session: AuthSession) => {
@@ -53,7 +54,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSessionHint();
   }, []);
 
-  const clearSession = useCallback(() => {
+  const clearSession = useCallback((reason = "session_cleared") => {
+    debugAuth(`logout reason: ${reason}`);
     accessTokenRef.current = null;
     setUser(null);
     setStatus("unauthenticated");
@@ -75,28 +77,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [apiBaseUrl]);
 
   const refreshAccessToken = useCallback(async () => {
+    if (refreshPromiseRef.current) {
+      debugAuth("refresh already running; waiting for existing refresh");
+      return refreshPromiseRef.current;
+    }
+
     if (!apiBaseUrl) {
-      clearSession();
+      clearSession("missing_api_base_url");
       return null;
     }
 
-    try {
-      const client = new ApiClient(apiBaseUrl);
-      const session = await client.publicRequest<AuthSession>("/auth/refresh", {
-        method: "POST",
-        body: JSON.stringify({})
-      });
+    refreshPromiseRef.current = (async () => {
+      try {
+        debugAuth("refresh started");
+        const client = new ApiClient(apiBaseUrl);
+        const session = await client.publicRequest<AuthSession>("/auth/refresh", {
+          method: "POST",
+          body: JSON.stringify({})
+        });
 
-      accessTokenRef.current = session.accessToken;
-      setSessionHint();
-      await fetchMe(session.accessToken);
-      setStatus("authenticated");
+        accessTokenRef.current = session.accessToken;
+        setSessionHint();
+        await fetchMe(session.accessToken);
+        setStatus("authenticated");
+        debugAuth("refresh success");
 
-      return session.accessToken;
-    } catch {
-      clearSession();
-      return null;
-    }
+        return session.accessToken;
+      } catch (error) {
+        if (isConfirmedAuthFailure(error)) {
+          debugAuth("refresh failed with confirmed auth error", error);
+          clearSession("refresh_auth_failed");
+          return null;
+        }
+
+        debugAuth("refresh failed with network/temporary error", error);
+        throw error;
+      } finally {
+        refreshPromiseRef.current = null;
+      }
+    })();
+
+    return refreshPromiseRef.current;
   }, [apiBaseUrl, clearSession, fetchMe]);
 
   const api = useMemo(
@@ -119,13 +140,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     setStatus("loading");
-    bootstrapPromiseRef.current = refreshAccessToken().then((token) => {
-      bootstrapPromiseRef.current = null;
-      return Boolean(token);
-    });
+    bootstrapPromiseRef.current = (async () => {
+      try {
+        debugAuth("auth bootstrap started");
+
+        if (!hasSessionHint()) {
+          clearSession("no_session_hint");
+          return false;
+        }
+
+        const token = await refreshAccessToken();
+        return Boolean(token);
+      } finally {
+        bootstrapPromiseRef.current = null;
+      }
+    })();
 
     return bootstrapPromiseRef.current;
-  }, [refreshAccessToken, user]);
+  }, [clearSession, refreshAccessToken, user]);
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -146,7 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await fetchMe(session.accessToken);
         toast({ title: "Signed in", variant: "success" });
       } catch (error) {
-        clearSession();
+        clearSession("login_failed");
         const message = error instanceof Error ? error.message : "Unable to sign in";
         toast({ title: "Login failed", description: message, variant: "error" });
         throw error;
@@ -303,4 +335,26 @@ function setSessionHint() {
 
 function clearSessionHint() {
   document.cookie = `${SESSION_HINT_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
+}
+
+function hasSessionHint() {
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  return document.cookie.split(";").some((item) => item.trim() === `${SESSION_HINT_COOKIE}=1`);
+}
+
+function isConfirmedAuthFailure(error: unknown) {
+  return error instanceof ApiClientError && [400, 401, 403].includes(error.status);
+}
+
+function debugAuth(message: string, details?: unknown) {
+  if (process.env.NODE_ENV !== "production") {
+    if (details) {
+      console.debug(`[auth] ${message}`, details);
+    } else {
+      console.debug(`[auth] ${message}`);
+    }
+  }
 }

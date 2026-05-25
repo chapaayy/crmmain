@@ -19,11 +19,15 @@ export function LoginForm() {
   const nextPath = useMemo(() => sanitizeNextPath(searchParams.get("next")), [searchParams]);
 
   useEffect(() => {
-    bootstrap().then((authenticated) => {
-      if (authenticated) {
-        router.replace(nextPath);
-      }
-    });
+    bootstrap()
+      .then((authenticated) => {
+        if (authenticated) {
+          router.replace(nextPath);
+        }
+      })
+      .catch(() => {
+        // Temporary API/network errors should not lock users out of the login form.
+      });
   }, [bootstrap, nextPath, router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -83,7 +87,7 @@ export function LoginForm() {
 }
 
 function sanitizeNextPath(value: string | null) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/login")) {
     return "/home";
   }
 

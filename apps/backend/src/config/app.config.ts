@@ -7,10 +7,31 @@ function parseCorsOrigins(value?: string) {
     .filter(Boolean);
 }
 
+function parseOptionalBoolean(value?: string) {
+  if (value === undefined || value === "") {
+    return undefined;
+  }
+
+  return value.toLowerCase() === "true";
+}
+
+function parseSameSite(value?: string) {
+  const normalized = (value ?? "lax").toLowerCase();
+
+  if (normalized === "strict" || normalized === "none") {
+    return normalized;
+  }
+
+  return "lax";
+}
+
 export default registerAs("app", () => ({
   nodeEnv: process.env.NODE_ENV ?? "development",
   port: Number(process.env.PORT ?? process.env.BACKEND_PORT ?? 3001),
   apiPublicUrl: process.env.API_PUBLIC_URL,
   corsOrigins: parseCorsOrigins(process.env.CORS_ORIGINS),
-  refreshTokenCookieName: process.env.REFRESH_TOKEN_COOKIE_NAME ?? "refreshToken"
+  refreshTokenCookieName: process.env.AUTH_REFRESH_COOKIE_NAME ?? process.env.REFRESH_TOKEN_COOKIE_NAME ?? "refreshToken",
+  authCookieDomain: process.env.AUTH_COOKIE_DOMAIN || undefined,
+  authCookieSecure: parseOptionalBoolean(process.env.AUTH_COOKIE_SECURE),
+  authCookieSameSite: parseSameSite(process.env.AUTH_COOKIE_SAME_SITE)
 }));

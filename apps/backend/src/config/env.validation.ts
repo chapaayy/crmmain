@@ -34,6 +34,22 @@ class EnvironmentVariables {
   REFRESH_TOKEN_COOKIE_NAME?: string;
 
   @IsOptional()
+  @IsString()
+  AUTH_REFRESH_COOKIE_NAME?: string;
+
+  @IsOptional()
+  @IsString()
+  AUTH_COOKIE_DOMAIN?: string;
+
+  @IsOptional()
+  @IsString()
+  AUTH_COOKIE_SECURE?: string;
+
+  @IsOptional()
+  @IsString()
+  AUTH_COOKIE_SAME_SITE?: string;
+
+  @IsOptional()
   @Transform(({ value }) => (value === undefined || value === "" ? undefined : Number(value)))
   @IsInt()
   @Min(1)

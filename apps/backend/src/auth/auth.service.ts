@@ -26,12 +26,27 @@ export class AuthService {
   }
 
   get refreshCookieOptions(): CookieOptions {
-    return {
+    const secure = this.config.get<boolean | undefined>("app.authCookieSecure");
+    const domain = this.config.get<string | undefined>("app.authCookieDomain");
+    const options: CookieOptions = {
       httpOnly: true,
-      secure: this.config.get<string>("app.apiPublicUrl", "").startsWith("https://"),
-      sameSite: "lax",
+      secure: secure ?? this.config.get<string>("app.apiPublicUrl", "").startsWith("https://"),
+      sameSite: this.config.get<CookieOptions["sameSite"]>("app.authCookieSameSite", "lax"),
       path: "/auth",
       maxAge: this.durationToMs(this.config.get<string>("jwt.refreshExpiresIn", "7d"))
+    };
+
+    if (domain) {
+      options.domain = domain;
+    }
+
+    return options;
+  }
+
+  get expiredRefreshCookieOptions(): CookieOptions {
+    return {
+      ...this.refreshCookieOptions,
+      maxAge: 0
     };
   }
 

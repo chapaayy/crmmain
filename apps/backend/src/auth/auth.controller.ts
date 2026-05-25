@@ -1,6 +1,6 @@
 import { BadRequestException, Body, Controller, Get, Post, Req, Res, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import { CookieOptions, Request, Response } from "express";
+import { Request, Response } from "express";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { Public } from "../common/decorators/public.decorator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
@@ -88,11 +88,6 @@ export class AuthController {
   }
 
   private clearRefreshCookie(response: Response) {
-    const options: CookieOptions = {
-      ...this.authService.refreshCookieOptions,
-      maxAge: 0
-    };
-
-    response.clearCookie(this.authService.refreshCookieName, options);
+    response.clearCookie(this.authService.refreshCookieName, this.authService.expiredRefreshCookieOptions);
   }
 }

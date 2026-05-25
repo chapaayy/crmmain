@@ -95,6 +95,10 @@ export function MyHomePage() {
   const canSeePayroll = Boolean(data?.payroll);
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -108,18 +112,20 @@ export function MyHomePage() {
     } finally {
       setLoading(false);
     }
-  }, [auth.api, toast]);
+  }, [auth.api, auth.status, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   const todayLabel = useMemo(
     () => new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long" }).format(new Date()),
     []
   );
 
-  if (loading) {
+  if (auth.status === "loading" || loading) {
     return (
       <main className="space-y-5 p-4 sm:p-6">
         <PageHeader title="Мой рабочий стол" description="Персональная сводка сотрудника и быстрые рабочие действия." />

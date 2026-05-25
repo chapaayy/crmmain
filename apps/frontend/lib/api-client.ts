@@ -66,6 +66,7 @@ export class ApiClient {
         const refreshedToken = await this.refreshAccessToken();
 
         if (refreshedToken) {
+          debugApi("queued request retry after refresh", path);
           return this.fetchWithAuth<T>(path, init, false);
         }
       }
@@ -94,6 +95,7 @@ export class ApiClient {
         const refreshedToken = await this.refreshAccessToken();
 
         if (refreshedToken) {
+          debugApi("queued text request retry after refresh", path);
           return this.fetchTextWithAuth(path, init, false);
         }
       }
@@ -122,6 +124,7 @@ export class ApiClient {
         const refreshedToken = await this.refreshAccessToken();
 
         if (refreshedToken) {
+          debugApi("queued blob request retry after refresh", path);
           return this.fetchBlobWithAuth(path, init, false);
         }
       }
@@ -204,5 +207,11 @@ function parseBody<T>(text: string): T | undefined {
     return JSON.parse(text) as T;
   } catch {
     return undefined;
+  }
+}
+
+function debugApi(message: string, path: string) {
+  if (process.env.NODE_ENV !== "production") {
+    console.debug(`[api] ${message}: ${path}`);
   }
 }
