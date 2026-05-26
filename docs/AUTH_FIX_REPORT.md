@@ -152,7 +152,7 @@ docker compose config
 Additional fix after production feedback:
 
 - `apps/frontend/next.config.mjs` now always rewrites `/api/:path*` to the internal backend URL. This keeps the same-origin `/api` fallback working even if `NEXT_PUBLIC_API_URL` was not present at frontend build time or Caddy is not the component handling `/api`.
-- `apps/frontend/lib/api-client.ts` now retries transient GET/HEAD failures (`408`, `425`, `429`, `500`, `502`, `503`, `504` and network errors) with short delays before showing an error.
+- `apps/frontend/lib/api-client.ts` now retries transient GET/HEAD failures (`408`, `425`, `429`, `500`, `502`, `503`, `504` and network errors) with a startup-safe retry window before showing an error.
 - API errors now include HTTP status and route, for example `HTTP 502 Bad Gateway on /analytics/dashboard`, instead of the unhelpful `Request failed`.
 - POST/PUT/PATCH/DELETE requests are not automatically retried, so create/update actions are not duplicated.
 
@@ -163,3 +163,9 @@ NEXT_PUBLIC_API_URL=/api
 INTERNAL_API_URL=http://backend:3001
 AUTH_COOKIE_PATH=/
 ```
+
+Follow-up after observing `HTTP 502 on /analytics/dashboard` that succeeds after a manual retry:
+
+- The transient GET/HEAD retry window was increased to roughly 7.7 seconds total.
+- This keeps pages in loading state while Caddy/Next/backend has a short proxy hiccup after reload instead of immediately showing `HTTP 502`.
+- If a `502` still remains after this window, the backend/proxy is unavailable long enough that server logs should be checked.

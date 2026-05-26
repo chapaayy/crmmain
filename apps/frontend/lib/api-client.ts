@@ -213,7 +213,7 @@ export class ApiClient {
 }
 
 const TRANSIENT_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
-const TRANSIENT_RETRY_DELAYS_MS = [250, 800];
+const TRANSIENT_RETRY_DELAYS_MS = [300, 700, 1200, 2000, 3500];
 
 function parseBody<T>(text: string): T | undefined {
   try {
