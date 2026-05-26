@@ -85,6 +85,10 @@ export function TimesheetPage() {
   }, [filters, page]);
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -101,11 +105,13 @@ export function TimesheetPage() {
     } finally {
       setLoading(false);
     }
-  }, [auth.api, canManage, query, toast]);
+  }, [auth.api, auth.status, canManage, query, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   function updateFilter(key: keyof typeof filters, value: string) {
     setPage(1);
@@ -267,6 +273,10 @@ export function ShiftsPage() {
     return params.toString();
   }, [filters, page]);
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -283,11 +293,13 @@ export function ShiftsPage() {
     } finally {
       setLoading(false);
     }
-  }, [auth.api, query, toast]);
+  }, [auth.api, auth.status, query, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   async function createShift(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

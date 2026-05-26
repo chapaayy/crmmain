@@ -52,6 +52,10 @@ export function RolesAdmin() {
   );
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -68,11 +72,13 @@ export function RolesAdmin() {
     } finally {
       setLoading(false);
     }
-  }, [auth.api, toast]);
+  }, [auth.api, auth.status, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   async function createRole(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

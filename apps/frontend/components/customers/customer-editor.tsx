@@ -88,6 +88,10 @@ export function CustomerDetailPage({ customerId }: { customerId: string }) {
   const canReadTasks = auth.hasPermission("tasks.read");
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -104,11 +108,13 @@ export function CustomerDetailPage({ customerId }: { customerId: string }) {
     } finally {
       setLoading(false);
     }
-  }, [auth.api, customerId, toast]);
+  }, [auth.api, auth.status, customerId, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   async function saveCustomer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

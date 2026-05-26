@@ -33,6 +33,10 @@ export function UsersAdmin() {
   const query = useMemo(() => new URLSearchParams({ page: String(page), limit: "10", search }).toString(), [page, search]);
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -49,11 +53,13 @@ export function UsersAdmin() {
     } finally {
       setLoading(false);
     }
-  }, [auth.api, query, toast]);
+  }, [auth.api, auth.status, query, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   async function createUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

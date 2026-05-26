@@ -38,6 +38,10 @@ export function NotificationBell() {
   }, [apiBaseUrl, auth.accessToken]);
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -47,14 +51,18 @@ export function NotificationBell() {
     } finally {
       setLoading(false);
     }
-  }, [auth.api]);
+  }, [auth.api, auth.status]);
 
   useEffect(() => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     void load();
     const timer = window.setInterval(() => void load(), 30_000);
 
     return () => window.clearInterval(timer);
-  }, [load]);
+  }, [auth.status, load]);
 
   useEffect(() => {
     if (!sseUrl) {
@@ -82,11 +90,19 @@ export function NotificationBell() {
   }, [load, sseUrl]);
 
   async function markRead(id: string) {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     await auth.api.request(`/notifications/${id}/read`, { method: "PATCH" });
     await load();
   }
 
   async function markAllRead() {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     await auth.api.request("/notifications/read-all", { method: "PATCH" });
     await load();
   }

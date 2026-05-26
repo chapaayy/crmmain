@@ -40,6 +40,10 @@ function WarehouseStockOperationPage({ mode }: { mode: "receipt" | "adjustment" 
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -58,11 +62,13 @@ function WarehouseStockOperationPage({ mode }: { mode: "receipt" | "adjustment" 
     } finally {
       setLoading(false);
     }
-  }, [auth.api, toast]);
+  }, [auth.api, auth.status, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

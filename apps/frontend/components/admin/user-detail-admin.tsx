@@ -36,6 +36,10 @@ export function UserDetailAdmin({ userId }: { userId: string }) {
   const canManageRoles = auth.hasPermission("roles.manage");
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -53,11 +57,13 @@ export function UserDetailAdmin({ userId }: { userId: string }) {
     } finally {
       setLoading(false);
     }
-  }, [auth.api, toast, userId]);
+  }, [auth.api, auth.status, toast, userId]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

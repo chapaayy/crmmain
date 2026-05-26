@@ -67,6 +67,10 @@ export function EmployeeTasksPage({ employeeId, responsibilityId }: { employeeId
   }, [filters, page]);
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -87,8 +91,10 @@ export function EmployeeTasksPage({ employeeId, responsibilityId }: { employeeId
   }, [auth, query, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   function updateFilter(key: keyof typeof filters, value: string) {
     setPage(1);
@@ -251,6 +257,10 @@ export function EmployeeTaskDetailPage({ taskId }: { taskId?: string }) {
   const canEdit = isNew ? auth.hasPermission("employee_tasks.create") : auth.hasPermission("employee_tasks.update");
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -286,8 +296,10 @@ export function EmployeeTaskDetailPage({ taskId }: { taskId?: string }) {
   }, [auth, taskId, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

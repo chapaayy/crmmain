@@ -70,6 +70,10 @@ export function LeadDetailPage({ leadId }: { leadId: string }) {
   const canConvert = canUpdate && auth.hasPermission("customers.create");
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -81,11 +85,13 @@ export function LeadDetailPage({ leadId }: { leadId: string }) {
     } finally {
       setLoading(false);
     }
-  }, [auth.api, leadId, toast]);
+  }, [auth.api, auth.status, leadId, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   async function saveLead(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

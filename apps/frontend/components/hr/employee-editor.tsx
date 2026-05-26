@@ -108,6 +108,10 @@ export function EmployeeEditor({ employeeId, mode = "view" }: { employeeId?: str
   const canRevealSecrets = auth.hasPermission("secrets.reveal");
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -162,8 +166,10 @@ export function EmployeeEditor({ employeeId, mode = "view" }: { employeeId?: str
   }, [auth, canReadAttendance, canReadEmployeeTasks, canReadPayroll, canReadResponsibilities, canReadSecrets, employeeId, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   const monthWorkedHours = useMemo(() => {
     const now = new Date();
@@ -538,7 +544,7 @@ function EmployeeStatsGrid({
     { label: "Часов в месяце", value: formatNumber(monthWorkedHours), icon: Clock3 },
     { label: "Активных задач", value: activeTasksCount, icon: ClipboardCheck },
     { label: "Ответственностей", value: responsibilitiesCount, icon: ListChecks },
-    { label: "К выплате", value: showPayroll ? formatMoney(latestPayrollLine?.netAmount) : "Скрыто", icon: HandCoins }
+    { label: "К выплате", value: showPayroll ? formatMoney(latestPayrollLine?.netAmount) : "Нет доступа", icon: HandCoins }
   ];
 
   return (

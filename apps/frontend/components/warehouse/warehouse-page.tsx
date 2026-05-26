@@ -43,6 +43,10 @@ export function WarehousePage() {
   const canManage = auth.hasPermission("warehouse.manage");
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -67,11 +71,13 @@ export function WarehousePage() {
     } finally {
       setLoading(false);
     }
-  }, [auth.api, toast]);
+  }, [auth.api, auth.status, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   async function createWarehouse(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -35,6 +35,10 @@ export function ProductCreatePage() {
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -49,11 +53,13 @@ export function ProductCreatePage() {
     } finally {
       setLoading(false);
     }
-  }, [auth.api, toast]);
+  }, [auth.api, auth.status, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -114,6 +120,10 @@ export function ProductDetailPage({ productId }: { productId: string }) {
   const canShowVariantForm = editingVariantId ? canUpdate : canCreate;
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -134,11 +144,13 @@ export function ProductDetailPage({ productId }: { productId: string }) {
     } finally {
       setLoading(false);
     }
-  }, [auth.api, productId, toast]);
+  }, [auth.api, auth.status, productId, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   async function saveProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

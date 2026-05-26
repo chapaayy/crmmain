@@ -25,7 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { MetricCard } from "@/components/workspace/metric-card";
 import { PageHeader } from "@/components/workspace/page-header";
-import { EmptyState, LoadingState } from "@/components/workspace/states";
+import { EmptyState, ErrorState, LoadingState } from "@/components/workspace/states";
 
 interface AnalyticsDashboard {
   generatedAt: string;
@@ -152,10 +152,13 @@ export function Dashboard() {
     source: "",
     categoryId: ""
   });
+  const [error, setError] = useState<string | null>(null);
   const canReadFinance = auth.hasPermission("payments.read") || auth.hasPermission("analytics.read_finance");
   const canReadPayroll = auth.hasPermission(["payroll.read", "payroll.manage"]);
   const showFinance = Boolean(data?.financeVisible && canReadFinance);
   const showPayroll = Boolean(data?.payroll?.visible && canReadPayroll);
+  const noFinanceAccess = "Нет доступа";
+  const noPayrollAccess = "Нет доступа";
   const query = useMemo(() => {
     const params = new URLSearchParams();
 
@@ -169,21 +172,30 @@ export function Dashboard() {
   }, [filters]);
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
+    setError(null);
 
     try {
       const response = await auth.api.request<AnalyticsDashboard>(`/analytics/dashboard${query ? `?${query}` : ""}`);
       setData(response);
     } catch (error) {
-      toast({ title: "Не удалось загрузить аналитику", description: error instanceof Error ? error.message : undefined, variant: "error" });
+      const message = error instanceof Error ? error.message : "Не удалось загрузить аналитику";
+      setError(message);
+      toast({ title: "Не удалось загрузить аналитику", description: message, variant: "error" });
     } finally {
       setLoading(false);
     }
-  }, [auth.api, query, toast]);
+  }, [auth.api, auth.status, query, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   function updateFilter(key: keyof typeof filters, value: string) {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -207,41 +219,45 @@ export function Dashboard() {
           </div>
         </div>
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {error ? (
+          <ErrorState label="Не удалось загрузить аналитику" description={error} onRetry={() => void load()} />
+        ) : null}
+
+        {!error ? <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard icon={ClipboardList} label="Заказы сегодня" loading={loading} value={data?.orders.today ?? 0} note={`${data?.orders.week ?? 0} за неделю`} />
           <MetricCard
             icon={TrendingUp}
             label="Продажи за месяц"
             loading={loading}
-            value={showFinance ? formatMoney(data?.sales.salesTotal ?? 0) : "Hidden"}
-            note={showFinance ? `${formatMoney(data?.sales.averageCheck ?? 0)} средний чек` : "Requires payments.read"}
+            value={showFinance ? formatMoney(data?.sales.salesTotal ?? 0) : noFinanceAccess}
+            note={showFinance ? `${formatMoney(data?.sales.averageCheck ?? 0)} средний чек` : "Нужны права на финансы"}
           />
           <MetricCard icon={Users} label="Новые лиды" loading={loading} value={data?.leads.new ?? 0} note={`${formatPercent(data?.leads.conversionRate ?? 0)} конверсия`} />
           <MetricCard
             icon={Send}
             label="Неоплаченные счета"
             loading={loading}
-            value={showFinance ? data?.sales.unpaidInvoices.count ?? 0 : "Hidden"}
-            note={showFinance ? `${formatMoney(data?.sales.unpaidInvoices.total ?? 0)} к оплате` : "Finance hidden"}
+            value={showFinance ? data?.sales.unpaidInvoices.count ?? 0 : noFinanceAccess}
+            note={showFinance ? `${formatMoney(data?.sales.unpaidInvoices.total ?? 0)} к оплате` : "Нужны права на финансы"}
             tone="warning"
           />
-        </section>
+        </section> : null}
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {!error ? <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard icon={Send} label="Отгрузки сегодня" loading={loading} value={data?.orders.shipmentsToday ?? 0} note={`${data?.warehouse.shipmentsToday ?? 0} склад`} />
           <MetricCard icon={PackageSearch} label="Низкие остатки" loading={loading} value={data?.warehouse.lowStock.length ?? 0} note={`${formatQuantity(data?.warehouse.available ?? 0)} доступно`} tone="warning" />
           <MetricCard icon={AlertCircle} label="Просроченные задачи" loading={loading} value={data?.orders.overdueTasks ?? 0} note={`${data?.orders.total ?? 0} заказов в фильтре`} tone={(data?.orders.overdueTasks ?? 0) > 0 ? "danger" : "success"} />
           <MetricCard icon={UserRoundCheck} label="Активные сотрудники" loading={loading} value={data?.employees?.active ?? "—"} note={data?.employees ? `${data.employees.total} всего` : "HR metrics fallback"} />
-        </section>
+        </section> : null}
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard icon={HandCoins} label="Фонд зарплаты" loading={loading} value={showPayroll ? formatMoney(data?.payroll?.salaryFund ?? 0) : "Hidden"} note={showPayroll ? `${formatMoney(data?.payroll?.net ?? 0)} к выплате` : "Payroll hidden"} />
-          <MetricCard icon={Banknote} label="Начислено" loading={loading} value={showPayroll ? formatMoney(data?.payroll?.accrued ?? 0) : "Hidden"} note={showPayroll ? `${formatMoney(data?.payroll?.paid ?? 0)} выплачено` : "Payroll hidden"} />
-          <MetricCard icon={Percent} label="Комиссии менеджеров" loading={loading} value={showPayroll ? formatMoney(data?.payroll?.commissions ?? 0) : "Hidden"} note={showPayroll ? `${formatMoney(data?.payroll?.bonuses ?? 0)} бонусы / ${formatMoney(data?.payroll?.penalties ?? 0)} штрафы` : "Payroll hidden"} />
-          <MetricCard icon={Clock3} label="Отработанные часы" loading={loading} value={showPayroll ? formatQuantity(data?.payroll?.workedHours ?? 0) : "Hidden"} note={showPayroll ? `${formatQuantity(data?.payroll?.overtimeHours ?? 0)} переработки / ${formatQuantity(data?.payroll?.unapprovedHours ?? 0)} не утверждено` : "Payroll hidden"} />
-        </section>
+        {!error ? <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard icon={HandCoins} label="Фонд зарплаты" loading={loading} value={showPayroll ? formatMoney(data?.payroll?.salaryFund ?? 0) : noPayrollAccess} note={showPayroll ? `${formatMoney(data?.payroll?.net ?? 0)} к выплате` : "Нужны права на зарплату"} />
+          <MetricCard icon={Banknote} label="Начислено" loading={loading} value={showPayroll ? formatMoney(data?.payroll?.accrued ?? 0) : noPayrollAccess} note={showPayroll ? `${formatMoney(data?.payroll?.paid ?? 0)} выплачено` : "Нужны права на зарплату"} />
+          <MetricCard icon={Percent} label="Комиссии менеджеров" loading={loading} value={showPayroll ? formatMoney(data?.payroll?.commissions ?? 0) : noPayrollAccess} note={showPayroll ? `${formatMoney(data?.payroll?.bonuses ?? 0)} бонусы / ${formatMoney(data?.payroll?.penalties ?? 0)} штрафы` : "Нужны права на зарплату"} />
+          <MetricCard icon={Clock3} label="Отработанные часы" loading={loading} value={showPayroll ? formatQuantity(data?.payroll?.workedHours ?? 0) : noPayrollAccess} note={showPayroll ? `${formatQuantity(data?.payroll?.overtimeHours ?? 0)} переработки / ${formatQuantity(data?.payroll?.unapprovedHours ?? 0)} не утверждено` : "Нужны права на зарплату"} />
+        </section> : null}
 
-        <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        {!error ? <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle>Заказы по статусам</CardTitle>
@@ -268,9 +284,9 @@ export function Dashboard() {
               <MiniStat label="Заказы из лидов" loading={loading} value={data?.leads.ordersFromLeads ?? 0} />
             </CardContent>
           </Card>
-        </section>
+        </section> : null}
 
-        <section className="grid gap-4 xl:grid-cols-3">
+        {!error ? <section className="grid gap-4 xl:grid-cols-3">
           <Card>
             <CardHeader>
               <CardTitle>Популярные товары</CardTitle>
@@ -291,7 +307,7 @@ export function Dashboard() {
                       </div>
                       <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                         <span>{item.ordersCount} lines</span>
-                        <span>{showFinance ? formatMoney(item.revenue ?? 0) : "Revenue hidden"}</span>
+                        <span>{showFinance ? formatMoney(item.revenue ?? 0) : noFinanceAccess}</span>
                       </div>
                     </div>
                   ))}
@@ -317,7 +333,7 @@ export function Dashboard() {
                       <div className="mt-1 text-xs text-muted-foreground">{item.manager?.email ?? "No manager selected"}</div>
                       <div className="mt-2 flex items-center justify-between text-xs">
                         <span>{item.ordersCount} orders</span>
-                        <span className="text-muted-foreground">{showFinance ? formatMoney(item.salesTotal ?? 0) : "Sales hidden"}</span>
+                        <span className="text-muted-foreground">{showFinance ? formatMoney(item.salesTotal ?? 0) : noFinanceAccess}</span>
                       </div>
                     </div>
                   ))}
@@ -359,7 +375,7 @@ export function Dashboard() {
               )}
             </CardContent>
           </Card>
-        </section>
+        </section> : null}
       </main>
     </PermissionGate>
   );

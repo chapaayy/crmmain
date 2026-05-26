@@ -5,9 +5,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
+import { ApiClientError } from "@/lib/api-client";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { bootstrap, status } = useAuth();
+  const auth = useAuth();
+  const { bootstrap, status } = auth;
   const pathname = usePathname();
   const router = useRouter();
   const [ready, setReady] = useState(false);
@@ -18,6 +20,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     let mounted = true;
 
     setError(null);
+    setReady(false);
     bootstrap()
       .then((authenticated) => {
         if (!mounted) {
@@ -37,7 +40,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
         }
 
         setReady(false);
-        setError(bootstrapError instanceof Error ? bootstrapError.message : "Unable to restore session");
+        setError(getBootstrapErrorMessage(bootstrapError));
       });
 
     return () => {
@@ -58,12 +61,17 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
           <AlertCircle className="mx-auto h-6 w-6 text-warning" />
           <h1 className="mt-3 text-base font-semibold">Не удалось восстановить сессию</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {error}. Проверьте соединение с API и попробуйте еще раз.
+            {error}
           </p>
-          <Button className="mt-4" type="button" variant="outline" onClick={() => setAttempt((value) => value + 1)}>
-            <RefreshCw className="h-4 w-4" />
-            Повторить
-          </Button>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <Button type="button" variant="outline" onClick={() => setAttempt((value) => value + 1)}>
+              <RefreshCw className="h-4 w-4" />
+              Повторить
+            </Button>
+            <Button type="button" variant="ghost" onClick={() => void auth.logout()}>
+              Выйти
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -81,4 +89,16 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   return <>{children}</>;
+}
+
+function getBootstrapErrorMessage(error: unknown) {
+  if (error instanceof ApiClientError && error.isNetworkError) {
+    return "Не удалось подключиться к API. Сессия не сброшена. Проверьте соединение и повторите.";
+  }
+
+  if (error instanceof Error) {
+    return `${error.message}. Проверьте соединение с API и попробуйте еще раз.`;
+  }
+
+  return "Не удалось восстановить сессию. Проверьте соединение с API и попробуйте еще раз.";
 }

@@ -100,11 +100,7 @@ export class AuthService {
       throw new UnauthorizedException("Refresh token is invalid");
     }
 
-    await this.prisma.refreshToken.update({
-      where: { id: stored.id },
-      data: { revokedAt: new Date() }
-    });
-
+    // Keep the previous refresh token valid until expiry so hard reloads cannot lose a rotated cookie mid-flight.
     return this.issueSession(stored.user);
   }
 

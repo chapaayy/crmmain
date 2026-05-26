@@ -36,6 +36,10 @@ export function RelatedTasksCard({
   const canUpdate = auth.hasPermission("tasks.update");
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -51,11 +55,13 @@ export function RelatedTasksCard({
     } finally {
       setLoading(false);
     }
-  }, [auth.api, relatedId, relatedType]);
+  }, [auth.api, auth.status, relatedId, relatedType]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   async function createTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

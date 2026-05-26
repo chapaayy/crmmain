@@ -4,13 +4,23 @@ export class ApiClientError extends Error {
   status: number;
   code?: string;
   details?: unknown;
+  isNetworkError: boolean;
+  isAuthError: boolean;
 
-  constructor(message: string, status: number, code?: string, details?: unknown) {
+  constructor(
+    message: string,
+    status: number,
+    code?: string,
+    details?: unknown,
+    options: { isNetworkError?: boolean; isAuthError?: boolean } = {}
+  ) {
     super(message);
     this.name = "ApiClientError";
     this.status = status;
     this.code = code;
     this.details = details;
+    this.isNetworkError = options.isNetworkError ?? status === 0;
+    this.isAuthError = options.isAuthError ?? [401, 403].includes(status);
   }
 }
 
@@ -63,6 +73,7 @@ export class ApiClient {
         error.status === 401 &&
         this.refreshAccessToken
       ) {
+        debugApi("request waits for refresh", path);
         const refreshedToken = await this.refreshAccessToken();
 
         if (refreshedToken) {
@@ -92,6 +103,7 @@ export class ApiClient {
         error.status === 401 &&
         this.refreshAccessToken
       ) {
+        debugApi("text request waits for refresh", path);
         const refreshedToken = await this.refreshAccessToken();
 
         if (refreshedToken) {
@@ -121,6 +133,7 @@ export class ApiClient {
         error.status === 401 &&
         this.refreshAccessToken
       ) {
+        debugApi("blob request waits for refresh", path);
         const refreshedToken = await this.refreshAccessToken();
 
         if (refreshedToken) {
@@ -140,11 +153,15 @@ export class ApiClient {
       headers.set("Content-Type", "application/json");
     }
 
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      ...init,
-      headers,
-      credentials: "include"
-    });
+    const response = await fetchWithNetworkError(
+      `${this.baseUrl}${path}`,
+      {
+        ...init,
+        headers,
+        credentials: "include"
+      },
+      path
+    );
     const text = await response.text();
     const body = text ? parseBody<T | ApiErrorBody>(text) : undefined;
 
@@ -162,10 +179,14 @@ export class ApiClient {
   }
 
   private async fetchText(path: string, init: RequestInit = {}) {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      ...init,
-      credentials: "include"
-    });
+    const response = await fetchWithNetworkError(
+      `${this.baseUrl}${path}`,
+      {
+        ...init,
+        credentials: "include"
+      },
+      path
+    );
     const text = await response.text();
 
     if (!response.ok) {
@@ -182,10 +203,14 @@ export class ApiClient {
   }
 
   private async fetchBlob(path: string, init: RequestInit = {}) {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      ...init,
-      credentials: "include"
-    });
+    const response = await fetchWithNetworkError(
+      `${this.baseUrl}${path}`,
+      {
+        ...init,
+        credentials: "include"
+      },
+      path
+    );
 
     if (!response.ok) {
       const text = await response.text();
@@ -207,6 +232,16 @@ function parseBody<T>(text: string): T | undefined {
     return JSON.parse(text) as T;
   } catch {
     return undefined;
+  }
+}
+
+async function fetchWithNetworkError(url: string, init: RequestInit, path: string) {
+  try {
+    return await fetch(url, init);
+  } catch (error) {
+    debugApi("network error without logout", path);
+    const message = error instanceof Error ? error.message : "Failed to fetch";
+    throw new ApiClientError(message, 0, "NETWORK_ERROR", undefined, { isNetworkError: true });
   }
 }
 

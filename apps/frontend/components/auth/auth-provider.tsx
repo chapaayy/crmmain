@@ -43,17 +43,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
 
-  const setSession = useCallback((session: AuthSession) => {
-    const nextLocale = normalizeLocale(session.user.locale);
-
-    accessTokenRef.current = session.accessToken;
-    setUser(normalizeUser({ ...session.user, locale: nextLocale }));
-    setLocale(nextLocale);
-    storeLocale(nextLocale);
-    setStatus("authenticated");
-    setSessionHint();
-  }, []);
-
   const clearSession = useCallback((reason = "session_cleared") => {
     debugAuth(`logout reason: ${reason}`);
     accessTokenRef.current = null;
@@ -63,17 +52,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchMe = useCallback(async (token: string) => {
-    const client = new ApiClient(apiBaseUrl, {
-      getAccessToken: () => token
-    });
-    const response = await client.request<MeResponse>("/auth/me");
+    try {
+      debugAuth("auth me started");
+      const client = new ApiClient(apiBaseUrl, {
+        getAccessToken: () => token
+      });
+      const response = await client.request<MeResponse>("/auth/me");
 
-    const nextLocale = normalizeLocale(response.user.locale);
+      const nextLocale = normalizeLocale(response.user.locale);
 
-    setUser(normalizeUser({ ...response.user, locale: nextLocale }));
-    setLocale(nextLocale);
-    storeLocale(nextLocale);
-    return response.user;
+      setUser(normalizeUser({ ...response.user, locale: nextLocale }));
+      setLocale(nextLocale);
+      storeLocale(nextLocale);
+      debugAuth("auth me success");
+      return response.user;
+    } catch (error) {
+      debugAuth("auth me failed", error);
+      throw error;
+    }
   }, [apiBaseUrl]);
 
   const refreshAccessToken = useCallback(async () => {
@@ -144,9 +140,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         debugAuth("auth bootstrap started");
 
-        if (!hasSessionHint()) {
-          clearSession("no_session_hint");
-          return false;
+        if (accessTokenRef.current) {
+          try {
+            await fetchMe(accessTokenRef.current);
+            setStatus("authenticated");
+            return true;
+          } catch (error) {
+            if (isConfirmedAuthFailure(error) && !(error instanceof ApiClientError && error.status === 401)) {
+              clearSession("auth_me_failed");
+              return false;
+            }
+
+            if (!(error instanceof ApiClientError && error.status === 401)) {
+              throw error;
+            }
+
+            debugAuth("access token expired; refreshing");
+          }
         }
 
         const token = await refreshAccessToken();
@@ -157,7 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
 
     return bootstrapPromiseRef.current;
-  }, [clearSession, refreshAccessToken, user]);
+  }, [clearSession, fetchMe, refreshAccessToken, user]);
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -174,17 +184,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           body: JSON.stringify({ email, password })
         });
 
-        setSession(session);
+        accessTokenRef.current = session.accessToken;
+        setSessionHint();
         await fetchMe(session.accessToken);
+        setStatus("authenticated");
         toast({ title: "Signed in", variant: "success" });
       } catch (error) {
-        clearSession("login_failed");
+        if (error instanceof ApiClientError && error.isNetworkError) {
+          debugAuth("login failed with network error; session was not cleared", error);
+          setStatus(accessTokenRef.current ? "loading" : "unauthenticated");
+        } else {
+          clearSession("login_failed");
+        }
+
         const message = error instanceof Error ? error.message : "Unable to sign in";
         toast({ title: "Login failed", description: message, variant: "error" });
         throw error;
       }
     },
-    [apiBaseUrl, clearSession, fetchMe, setSession, toast]
+    [apiBaseUrl, clearSession, fetchMe, toast]
   );
 
   const logout = useCallback(async () => {
@@ -335,14 +353,6 @@ function setSessionHint() {
 
 function clearSessionHint() {
   document.cookie = `${SESSION_HINT_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
-}
-
-function hasSessionHint() {
-  if (typeof document === "undefined") {
-    return false;
-  }
-
-  return document.cookie.split(";").some((item) => item.trim() === `${SESSION_HINT_COOKIE}=1`);
 }
 
 function isConfirmedAuthFailure(error: unknown) {

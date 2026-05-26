@@ -55,6 +55,10 @@ export function ResponsibilitiesPage() {
   }, [filters, page]);
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -73,8 +77,10 @@ export function ResponsibilitiesPage() {
   }, [auth, query, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   function updateFilter(key: keyof typeof filters, value: string) {
     setPage(1);
@@ -225,6 +231,10 @@ export function ResponsibilityDetailPage({ responsibilityId }: { responsibilityI
   const canReadSecrets = auth.hasPermission("secrets.read_metadata");
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -256,8 +266,10 @@ export function ResponsibilityDetailPage({ responsibilityId }: { responsibilityI
   }, [auth, responsibilityId, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   async function saveResponsibility(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -65,6 +65,10 @@ export function SecretsPage() {
   }, [filters, page]);
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -85,8 +89,10 @@ export function SecretsPage() {
   }, [auth, query, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   function updateFilter(key: keyof typeof filters, value: string) {
     setPage(1);
@@ -235,6 +241,10 @@ export function SecretDetailPage({ secretId }: { secretId?: string }) {
   const canReadLogs = auth.hasPermission("secret_access_logs.read");
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -277,8 +287,10 @@ export function SecretDetailPage({ secretId }: { secretId?: string }) {
   }, [auth, canReadLogs, secretId, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   async function saveSecret(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

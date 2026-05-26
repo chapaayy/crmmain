@@ -65,6 +65,10 @@ export function TasksPage() {
   }, [filters, page]);
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -76,11 +80,13 @@ export function TasksPage() {
     } finally {
       setLoading(false);
     }
-  }, [auth.api, query, toast]);
+  }, [auth.api, auth.status, query, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   function updateFilter(key: keyof typeof filters, value: string) {
     setPage(1);

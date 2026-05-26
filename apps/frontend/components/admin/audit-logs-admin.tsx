@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Search } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import type { AuditLog, PaginatedResponse } from "@/components/admin/admin-types";
@@ -22,19 +22,29 @@ export function AuditLogsAdmin() {
   const [loading, setLoading] = useState(true);
   const query = useMemo(() => new URLSearchParams({ page: String(page), limit: "15", search }).toString(), [page, search]);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
-    auth.api
-      .request<PaginatedResponse<AuditLog>>(`/audit-logs?${query}`)
-      .then((response) => {
-        setLogs(response.data);
-        setMeta(response.meta);
-      })
-      .catch((error) =>
-        toast({ title: "Unable to load audit logs", description: error instanceof Error ? error.message : undefined, variant: "error" })
-      )
-      .finally(() => setLoading(false));
-  }, [auth.api, query, toast]);
+
+    try {
+      const response = await auth.api.request<PaginatedResponse<AuditLog>>(`/audit-logs?${query}`);
+      setLogs(response.data);
+      setMeta(response.meta);
+    } catch (error) {
+      toast({ title: "Unable to load audit logs", description: error instanceof Error ? error.message : undefined, variant: "error" });
+    } finally {
+      setLoading(false);
+    }
+  }, [auth.api, auth.status, query, toast]);
+
+  useEffect(() => {
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   return (
     <PermissionGate permission="audit_logs.read">

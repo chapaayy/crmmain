@@ -78,6 +78,10 @@ export function OrderCreatePage() {
   const [saving, setSaving] = useState(false);
 
   const loadCustomers = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -92,11 +96,13 @@ export function OrderCreatePage() {
     } finally {
       setLoading(false);
     }
-  }, [auth.api]);
+  }, [auth.api, auth.status]);
 
   useEffect(() => {
-    void loadCustomers();
-  }, [loadCustomers]);
+    if (auth.status === "authenticated") {
+      void loadCustomers();
+    }
+  }, [auth.status, loadCustomers]);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -167,6 +173,10 @@ export function OrderDetailPage({ orderId }: { orderId: string }) {
   const canReadTasks = auth.hasPermission("tasks.read");
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -205,11 +215,13 @@ export function OrderDetailPage({ orderId }: { orderId: string }) {
     } finally {
       setLoading(false);
     }
-  }, [auth.api, canReadDocuments, canReadPayments, orderId, toast]);
+  }, [auth.api, auth.status, canReadDocuments, canReadPayments, orderId, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   const localTotals = useMemo(() => (order ? estimateTotals(order.items ?? [], form) : null), [order, form]);
   const itemPreview = useMemo(() => {

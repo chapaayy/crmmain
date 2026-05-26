@@ -45,6 +45,10 @@ export function PayrollPeriodsPage() {
   const [form, setForm] = useState({ name: "", dateFrom: "", dateTo: "" });
   const canManage = auth.hasPermission("payroll.manage");
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -56,11 +60,13 @@ export function PayrollPeriodsPage() {
     } finally {
       setLoading(false);
     }
-  }, [auth.api, page, toast]);
+  }, [auth.api, auth.status, page, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   async function createPeriod(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -122,6 +128,10 @@ export function PayrollRunsPage() {
   const canApprove = auth.hasPermission("payroll.approve");
   const canExport = auth.hasPermission("payroll.export");
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -137,11 +147,13 @@ export function PayrollRunsPage() {
     } finally {
       setLoading(false);
     }
-  }, [auth.api, page, toast]);
+  }, [auth.api, auth.status, page, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   async function createRun(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -264,6 +276,10 @@ export function PayrollRunDetailPage({ runId }: { runId: string }) {
   const [run, setRun] = useState<PayrollRun | null>(null);
   const [loading, setLoading] = useState(true);
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -274,11 +290,13 @@ export function PayrollRunDetailPage({ runId }: { runId: string }) {
     } finally {
       setLoading(false);
     }
-  }, [auth.api, runId, toast]);
+  }, [auth.api, auth.status, runId, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   return (
     <PermissionGate permission="payroll.read">
@@ -343,6 +361,10 @@ export function PayrollAdjustmentsPage() {
   const [form, setForm] = useState({ employeeId: "", periodId: "", type: "BONUS", amount: "", reason: "" });
   const canManage = auth.hasPermission("payroll.manage");
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -360,9 +382,13 @@ export function PayrollAdjustmentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [auth.api, page, toast]);
+  }, [auth.api, auth.status, page, toast]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   async function createAdjustment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -423,6 +449,10 @@ export function CommissionRulesPage() {
   const [form, setForm] = useState({ employeeId: "", name: "", source: "PAID_ORDERS", percent: "", minOrderAmount: "", productCategoryId: "" });
   const canManage = auth.hasPermission("salary_rules.manage");
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -438,9 +468,13 @@ export function CommissionRulesPage() {
     } finally {
       setLoading(false);
     }
-  }, [auth.api, page, toast]);
+  }, [auth.api, auth.status, page, toast]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   async function createRule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

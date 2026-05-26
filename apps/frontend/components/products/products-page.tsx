@@ -67,6 +67,10 @@ export function ProductsPage() {
   }, [filters, page]);
 
   const load = useCallback(async () => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -83,11 +87,13 @@ export function ProductsPage() {
     } finally {
       setLoading(false);
     }
-  }, [auth.api, query, toast]);
+  }, [auth.api, auth.status, query, toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auth.status === "authenticated") {
+      void load();
+    }
+  }, [auth.status, load]);
 
   function updateFilter<K extends keyof ProductFilters>(key: K, value: ProductFilters[K]) {
     setPage(1);
