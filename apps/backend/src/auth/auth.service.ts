@@ -32,7 +32,7 @@ export class AuthService {
       httpOnly: true,
       secure: secure ?? this.config.get<string>("app.apiPublicUrl", "").startsWith("https://"),
       sameSite: this.config.get<CookieOptions["sameSite"]>("app.authCookieSameSite", "lax"),
-      path: "/auth",
+      path: this.config.get<string>("app.authCookiePath", "/"),
       maxAge: this.durationToMs(this.config.get<string>("jwt.refreshExpiresIn", "7d"))
     };
 

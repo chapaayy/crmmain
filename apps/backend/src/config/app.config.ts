@@ -32,6 +32,7 @@ export default registerAs("app", () => ({
   corsOrigins: parseCorsOrigins(process.env.CORS_ORIGINS),
   refreshTokenCookieName: process.env.AUTH_REFRESH_COOKIE_NAME ?? process.env.REFRESH_TOKEN_COOKIE_NAME ?? "refreshToken",
   authCookieDomain: process.env.AUTH_COOKIE_DOMAIN || undefined,
+  authCookiePath: process.env.AUTH_COOKIE_PATH || "/",
   authCookieSecure: parseOptionalBoolean(process.env.AUTH_COOKIE_SECURE),
   authCookieSameSite: parseSameSite(process.env.AUTH_COOKIE_SAME_SITE)
 }));

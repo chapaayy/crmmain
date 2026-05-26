@@ -7,6 +7,7 @@ import { defaultLocale, localeLabels, normalizeLocale } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n";
 import type { AuthSession, CurrentUser } from "@/lib/types";
 import { useToast } from "@/components/toast/toast-provider";
+import { getApiBaseUrl } from "@/lib/api-url";
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
@@ -41,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const accessTokenRef = useRef<string | null>(null);
   const bootstrapPromiseRef = useRef<Promise<boolean> | null>(null);
   const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+  const apiBaseUrl = getApiBaseUrl();
 
   const clearSession = useCallback((reason = "session_cleared") => {
     debugAuth(`logout reason: ${reason}`);

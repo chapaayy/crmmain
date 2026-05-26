@@ -43,6 +43,10 @@ class EnvironmentVariables {
 
   @IsOptional()
   @IsString()
+  AUTH_COOKIE_PATH?: string;
+
+  @IsOptional()
+  @IsString()
   AUTH_COOKIE_SECURE?: string;
 
   @IsOptional()

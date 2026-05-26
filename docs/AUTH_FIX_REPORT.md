@@ -29,6 +29,8 @@
 - `NotificationBell` и SSE/polling уведомлений стартуют только после authenticated.
 - CRM HTML/dynamic routes теперь отдаются с `Cache-Control: no-store`, чтобы браузер не запускал старый frontend bundle после деплоя.
 - `/home` повторяет `/me/summary` при временном `Failed to fetch` / `5xx` / `429`, а ошибка не сбрасывает сессию.
+- Browser frontend теперь использует same-origin API base `/api`; Caddy проксирует `/api/*` в backend. Это убирает зависимость UI от cross-subdomain CORS для обычных CRM-запросов.
+- Refresh cookie path по умолчанию `/`, чтобы cookie работала и для `/api/auth/*` на основном домене.
 
 ## 3. Как теперь работает auth bootstrap
 
@@ -57,6 +59,7 @@
 - Новый refresh token всегда уникален за счет `jti`, поэтому серия refresh-запросов больше не должна превращаться в backend `500 Internal server error` из-за одинакового JWT.
 - Protected pages не монтируют бизнес-данные до authenticated.
 - Dynamic frontend pages не кешируются браузером, поэтому обычный reload после деплоя получает свежий HTML с актуальными JS chunks.
+- API-запросы идут same-origin через `/api`, поэтому обычный browser fetch больше не зависит от доступности/CORS отдельного API subdomain.
 
 ## 6. Почему Failed to fetch больше не делает logout
 
@@ -78,10 +81,14 @@ Backend:
 
 Frontend auth/core:
 - `apps/frontend/lib/api-client.ts`
+- `apps/frontend/lib/api-url.ts`
 - `apps/frontend/components/auth/auth-provider.tsx`
 - `apps/frontend/components/auth/protected-route.tsx`
 - `apps/frontend/components/auth/permission-gate.tsx`
 - `apps/frontend/middleware.ts`
+- `apps/frontend/next.config.mjs`
+- `docker/Caddyfile`
+- `.env.example`
 
 Frontend startup/data loading:
 - `apps/frontend/components/notifications/notification-bell.tsx`

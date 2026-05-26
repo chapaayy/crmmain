@@ -5,7 +5,7 @@
 https://{$CRM_DOMAIN} {
 	encode zstd gzip
 	@dynamic {
-		not path /_next/static/* /favicon.ico /robots.txt /sitemap.xml
+		not path /_next/static/* /favicon.ico /robots.txt /sitemap.xml /api/*
 	}
 	header {
 		X-Content-Type-Options nosniff
@@ -16,7 +16,13 @@ https://{$CRM_DOMAIN} {
 		Pragma "no-cache"
 		Expires "0"
 	}
-	reverse_proxy frontend:{$FRONTEND_PORT}
+	handle_path /api/* {
+		header Cache-Control "no-store"
+		reverse_proxy backend:{$BACKEND_PORT}
+	}
+	handle {
+		reverse_proxy frontend:{$FRONTEND_PORT}
+	}
 }
 
 https://{$API_DOMAIN} {

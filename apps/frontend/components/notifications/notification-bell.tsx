@@ -5,6 +5,7 @@ import { Bell, CheckCheck, Loader2 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getApiBaseUrl } from "@/lib/api-url";
 import { cn } from "@/lib/utils";
 
 interface NotificationItem {
@@ -28,7 +29,7 @@ export function NotificationBell() {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+  const apiBaseUrl = getApiBaseUrl();
   const sseUrl = useMemo(() => {
     if (!apiBaseUrl || !auth.accessToken) {
       return "";
