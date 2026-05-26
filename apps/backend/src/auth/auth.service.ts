@@ -28,9 +28,10 @@ export class AuthService {
   get refreshCookieOptions(): CookieOptions {
     const secure = this.config.get<boolean | undefined>("app.authCookieSecure");
     const domain = this.config.get<string | undefined>("app.authCookieDomain");
+    const isProduction = this.config.get<string>("app.nodeEnv", "development") === "production";
     const options: CookieOptions = {
       httpOnly: true,
-      secure: secure ?? this.config.get<string>("app.apiPublicUrl", "").startsWith("https://"),
+      secure: secure ?? isProduction,
       sameSite: this.config.get<CookieOptions["sameSite"]>("app.authCookieSameSite", "lax"),
       path: this.config.get<string>("app.authCookiePath", "/"),
       maxAge: this.durationToMs(this.config.get<string>("jwt.refreshExpiresIn", "7d"))

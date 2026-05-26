@@ -1,15 +1,13 @@
 import { INestApplication } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 
-export function setupSwagger(app: INestApplication, config: ConfigService) {
-  const apiPublicUrl = config.get<string>("app.apiPublicUrl");
+export function setupSwagger(app: INestApplication) {
   const swaggerConfig = new DocumentBuilder()
     .setTitle("Polybags CRM API")
     .setDescription("Backend API for polypropylene bag CRM/ERP")
     .setVersion("0.1.0")
     .addBearerAuth()
-    .addServer(apiPublicUrl ?? "/")
+    .addServer("/api")
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
 

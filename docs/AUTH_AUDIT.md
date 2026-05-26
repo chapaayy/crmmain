@@ -45,7 +45,7 @@
 - Refresh token хранится в httpOnly cookie, выставляемой backend (`auth.service.ts:28-43`, `auth.controller.ts:86-87`).
 - Cookie options:
   - `httpOnly: true` (`auth.service.ts:32`);
-  - `secure` из `AUTH_COOKIE_SECURE`, fallback от `API_PUBLIC_URL.startsWith("https://")` (`auth.service.ts:33`);
+  - `secure` из `AUTH_COOKIE_SECURE`, fallback от `NODE_ENV=production` (`auth.service.ts:33`);
   - `sameSite` из `AUTH_COOKIE_SAME_SITE`, default `lax` (`auth.service.ts:34`);
   - `path: "/auth"` (`auth.service.ts:35`);
   - `maxAge` из `JWT_REFRESH_EXPIRES_IN`, default `7d` (`auth.service.ts:36`);
@@ -113,8 +113,8 @@
 
 - `crm_session_hint` не httpOnly и не является настоящей сессией.
 - Он может отсутствовать после cookie cleanup, domain/path mismatch, browser policy или старого состояния.
-- При этом настоящая httpOnly refresh cookie на `api.crm.com` может быть валидной.
-- Server middleware на frontend-домене не может прочитать refresh cookie API-домена и не должен решать auth.
+- При старой двухдоменной схеме настоящая httpOnly refresh cookie могла жить на отдельном API-домене.
+- Server middleware на frontend-домене не должен решать auth до клиентского bootstrap.
 - Из-за раннего redirect frontend не успевает вызвать `/auth/refresh`.
 
 Проявление:
@@ -260,7 +260,7 @@
 
 3. Mixed protocol / wrong API URL:
    - frontend build получает `NEXT_PUBLIC_API_URL` из env/Docker build args (`apps/frontend/Dockerfile:13-20`, `docker-compose.yml:89-102`);
-   - `.env.example` ожидает `NEXT_PUBLIC_API_URL=https://api.crm.com` (`.env.example:80`);
+   - `.env.example` теперь ожидает `NEXT_PUBLIC_API_URL=/api`;
    - если production frontend собран с неправильным URL, все запросы идут не туда.
 
 4. Refresh race:
@@ -442,10 +442,10 @@ React Query сейчас отсутствует, поэтому:
    - восстанавливать через refresh cookie.
 
 2. Refresh token:
-   - httpOnly secure cookie на API domain;
+   - httpOnly secure cookie на CRM domain;
    - `credentials: include`;
-   - `SameSite=Lax` для `crm.com` + `api.crm.com`, потому что это same-site subdomains;
-   - `SameSite=None; Secure` только если frontend/API реально cross-site.
+   - `SameSite=Lax` для same-origin `/api`;
+   - `SameSite=None; Secure` не требуется при одном публичном CRM-домене.
 
 3. Bootstrap:
    - initial `authStatus = loading`;

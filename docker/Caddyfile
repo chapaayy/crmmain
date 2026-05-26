@@ -24,16 +24,3 @@ https://{$CRM_DOMAIN} {
 		reverse_proxy frontend:{$FRONTEND_PORT}
 	}
 }
-
-https://{$API_DOMAIN} {
-	encode zstd gzip
-	header {
-		X-Content-Type-Options nosniff
-		Referrer-Policy strict-origin-when-cross-origin
-		Cache-Control "no-store"
-	}
-
-	# Uploads are not served directly from the volume.
-	# Protected API endpoints stream allowed files after JWT/RBAC checks.
-	reverse_proxy backend:{$BACKEND_PORT}
-}

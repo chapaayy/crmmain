@@ -89,7 +89,6 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
         NEXT_PUBLIC_CRM_URL: ${NEXT_PUBLIC_CRM_URL}
         CRM_DOMAIN: ${CRM_DOMAIN}
-        API_DOMAIN: ${API_DOMAIN}
         INTERNAL_API_URL: ${INTERNAL_API_URL:-http://backend:${BACKEND_PORT:-3001}}
     restart: unless-stopped
     logging: *default-logging
@@ -100,7 +99,6 @@ services:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
       NEXT_PUBLIC_CRM_URL: ${NEXT_PUBLIC_CRM_URL}
       CRM_DOMAIN: ${CRM_DOMAIN}
-      API_DOMAIN: ${API_DOMAIN}
       INTERNAL_API_URL: ${INTERNAL_API_URL:-http://backend:${BACKEND_PORT:-3001}}
     expose:
       - "${FRONTEND_PORT}"

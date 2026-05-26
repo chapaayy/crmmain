@@ -11,7 +11,7 @@
 ## Domains
 
 - `CRM_DOMAIN` opens the main CRM workspace.
-- `API_DOMAIN` opens the backend API.
+- `CRM_DOMAIN/api/*` opens the backend API through Caddy and the internal Docker network.
 
 Domain values are read from `.env` by Docker Compose and Caddy.
 

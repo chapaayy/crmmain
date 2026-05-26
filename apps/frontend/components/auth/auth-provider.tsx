@@ -188,7 +188,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(
     async (email: string, password: string) => {
       if (!apiBaseUrl) {
-        throw new Error("NEXT_PUBLIC_API_URL is not configured");
+        throw new Error("API base URL is not configured");
       }
 
       setStatus("loading");

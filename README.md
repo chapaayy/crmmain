@@ -35,15 +35,14 @@ For local domain routing, add these records to your hosts file:
 
 ```text
 127.0.0.1 crm.com
-127.0.0.1 api.crm.com
 ```
 
 Open:
 
 - CRM: https://crm.com
 - Admin routes: https://crm.com/admin
-- API health: https://api.crm.com/health
-- API docs: https://api.crm.com/docs
+- API health: https://crm.com/api/health
+- API docs: https://crm.com/api/docs
 
 Login with the seeded super admin from `.env`:
 
@@ -76,7 +75,7 @@ npm run dev:frontend
 
 The backend expects PostgreSQL and Redis to be available. The easiest local option is to run the infrastructure with Docker Compose and develop the apps from the host.
 
-Backend API settings are read from `.env`, including `DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGINS`, and `API_PUBLIC_URL`.
+Backend API settings are read from `.env`, including `DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and `CORS_ORIGINS`.
 Frontend domain and API settings are read from `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_CRM_URL`.
 
 ## Environment
@@ -110,9 +109,9 @@ docker compose exec backend npm run prisma:seed
 
 ## Production Deploy
 
-1. Point DNS records for `CRM_DOMAIN` and `API_DOMAIN` to the server.
+1. Point the DNS record for `CRM_DOMAIN` to the server.
 2. Copy `.env.example` to `.env` and replace every placeholder secret.
-3. Set `NEXT_PUBLIC_*`, `API_PUBLIC_URL`, and `CORS_ORIGINS` to HTTPS URLs for the same domains.
+3. Set `NEXT_PUBLIC_API_URL=/api`, `NEXT_PUBLIC_CRM_URL=https://${CRM_DOMAIN}`, and `CORS_ORIGINS=https://${CRM_DOMAIN}`.
 4. Start the stack:
 
 ```bash
@@ -122,7 +121,7 @@ docker compose up -d --build
 Production traffic goes through Caddy only:
 
 - `https://${CRM_DOMAIN}` -> `frontend`
-- `https://${API_DOMAIN}` -> `backend`
+- `https://${CRM_DOMAIN}/api/*` -> `backend`
 
 Uploads are stored in the `uploads_data` volume and are not served directly by Caddy. Document downloads go through protected backend API routes.
 

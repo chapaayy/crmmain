@@ -5,7 +5,7 @@
 - `docker-compose.yml` is the production compose file.
 - `docker-compose.dev.yml` exposes app ports for local/dev checks.
 - `docker/Caddyfile` routes public HTTPS domains to internal services.
-- `.env` contains all domains, ports, database credentials, JWT secrets, and public URLs.
+- `.env` contains the public CRM domain, ports, database credentials, JWT secrets, and public URLs.
 
 ## Required Environment
 
@@ -27,20 +27,18 @@ Replace all placeholder secrets before deploying:
 Set the production domains:
 
 - `CRM_DOMAIN`
-- `API_DOMAIN`
-- `API_PUBLIC_URL=https://api.example.com`
-- `NEXT_PUBLIC_API_URL=https://api.example.com`
+- `NEXT_PUBLIC_API_URL=/api`
 - `NEXT_PUBLIC_CRM_URL=https://crm.example.com`
 - `CORS_ORIGINS=https://crm.example.com`
+- `INTERNAL_API_URL=http://backend:3001`
 
 ## DNS And TLS
 
 Point these DNS records to the server before starting Caddy:
 
 - `CRM_DOMAIN`
-- `API_DOMAIN`
 
-Caddy obtains and renews HTTPS certificates automatically. Ports `80` and `443` must be reachable from the internet.
+Caddy obtains and renews the HTTPS certificate automatically. Ports `80` and `443` must be reachable from the internet.
 
 ## Start
 

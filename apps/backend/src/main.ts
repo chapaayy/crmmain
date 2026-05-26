@@ -44,7 +44,7 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new ResponseTimeInterceptor());
 
-  setupSwagger(app, config);
+  setupSwagger(app);
   prisma.enableShutdownHooks(app);
 
   await app.listen(port, "0.0.0.0");

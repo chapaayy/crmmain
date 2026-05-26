@@ -1,5 +1,5 @@
 import { plainToInstance, Transform } from "class-transformer";
-import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUrl, Min, validateSync } from "class-validator";
+import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Min, validateSync } from "class-validator";
 
 class EnvironmentVariables {
   @IsString()
@@ -17,9 +17,6 @@ class EnvironmentVariables {
   @IsString()
   @IsNotEmpty()
   CORS_ORIGINS!: string;
-
-  @IsUrl({ require_tld: false })
-  API_PUBLIC_URL!: string;
 
   @IsOptional()
   @IsString()
