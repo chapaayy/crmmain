@@ -18,44 +18,26 @@ const productSelect = {
   purchasePrice: true
 } satisfies Prisma.ProductSelect;
 
-type ManagerSummary = Prisma.UserGetPayload<{ select: typeof managerSelect }>;
-type ProductSummary = Prisma.ProductGetPayload<{ select: typeof productSelect }>;
-
-interface ManagerAggregate {
-  managerId: string | null;
-  manager: ManagerSummary | null;
-  ordersCount: number;
-  salesTotal: number;
-}
-
-interface ProductAggregate {
-  productId: string;
-  product: ProductSummary;
-  quantity: number;
-  revenue: number;
-  ordersCount: number;
-}
-
 @Injectable()
 export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async dashboard(query: AnalyticsQueryDto, actorId: string) {
-    const financeVisible = await this.canViewFinance(actorId);
+    const access = await this.getAnalyticsAccess(actorId);
     const [orders, sales, leads, products, managers, warehouse, payroll] = await Promise.all([
       this.orders(query),
-      this.buildSales(query, financeVisible),
+      this.buildSales(query, access.finance),
       this.leads(query),
-      this.buildProducts(query, financeVisible),
-      this.buildManagers(query, financeVisible),
+      this.buildProducts(query, access.finance),
+      this.buildManagers(query, access.finance),
       this.warehouse(query),
-      this.payroll(query, actorId)
+      this.payroll(query, access.payroll)
     ]);
 
     return {
       generatedAt: new Date().toISOString(),
       filters: this.normalizeFilters(query),
-      financeVisible,
+      financeVisible: access.finance,
       orders,
       sales,
       leads,
@@ -114,11 +96,20 @@ export class AnalyticsService {
   }
 
   async warehouse(query: AnalyticsQueryDto) {
-    const [warehousesTotal, warehousesActive, stockItems, shipmentsToday] = await Promise.all([
+    const stockWhere = this.buildStockWhere(query);
+    const [warehousesTotal, warehousesActive, stockAggregate, lowStockCandidates, shipmentsToday] = await Promise.all([
       this.prisma.warehouse.count({ where: { deletedAt: null } }),
       this.prisma.warehouse.count({ where: { deletedAt: null, isActive: true } }),
+      this.prisma.stockItem.aggregate({
+        where: stockWhere,
+        _count: { _all: true },
+        _sum: {
+          quantity: true,
+          reservedQuantity: true
+        }
+      }),
       this.prisma.stockItem.findMany({
-        where: this.buildStockWhere(query),
+        where: stockWhere,
         select: {
           id: true,
           quantity: true,
@@ -141,11 +132,13 @@ export class AnalyticsService {
               name: true
             }
           }
-        }
+        },
+        orderBy: [{ quantity: "asc" }, { updatedAt: "desc" }],
+        take: 200
       }),
       this.countShipmentsToday(query)
     ]);
-    const serializedStock = stockItems.map((item) => {
+    const lowStock = lowStockCandidates.map((item) => {
       const quantity = decimalToNumber(item.quantity);
       const reserved = decimalToNumber(item.reservedQuantity);
       const available = roundQuantity(quantity - reserved);
@@ -161,27 +154,26 @@ export class AnalyticsService {
         unit: item.unit,
         threshold: item.product.minOrderQty
       };
-    });
-    const lowStock = serializedStock
+    })
       .filter((item) => item.available <= item.threshold)
       .sort((a, b) => a.available - b.available)
       .slice(0, 10);
+    const quantity = decimalToNumber(stockAggregate._sum.quantity);
+    const reserved = decimalToNumber(stockAggregate._sum.reservedQuantity);
 
     return {
       warehousesTotal,
       warehousesActive,
-      stockItems: serializedStock.length,
-      quantity: roundQuantity(serializedStock.reduce((sum, item) => sum + item.quantity, 0)),
-      reserved: roundQuantity(serializedStock.reduce((sum, item) => sum + item.reserved, 0)),
-      available: roundQuantity(serializedStock.reduce((sum, item) => sum + item.available, 0)),
+      stockItems: stockAggregate._count._all,
+      quantity: roundQuantity(quantity),
+      reserved: roundQuantity(reserved),
+      available: roundQuantity(quantity - reserved),
       lowStock,
       shipmentsToday
     };
   }
 
-  private async payroll(query: AnalyticsQueryDto, actorId: string) {
-    const visible = await this.canViewPayroll(actorId);
-
+  private async payroll(query: AnalyticsQueryDto, visible: boolean) {
     if (!visible) {
       return {
         visible,
@@ -200,71 +192,65 @@ export class AnalyticsService {
     }
 
     const periodWhere = this.buildPayrollPeriodWhere(query);
-    const [employees, runs, unapprovedEntries] = await Promise.all([
-      this.prisma.employeeProfile.findMany({
+    const runWhere: Prisma.PayrollRunWhereInput = {
+      deletedAt: null,
+      status: { not: PayrollRunStatus.CANCELLED },
+      period: periodWhere
+    };
+    const [salaryFund, runTotals, paidTotals, lineTotals, unapprovedEntries] = await Promise.all([
+      this.prisma.employeeProfile.aggregate({
         where: { deletedAt: null, isActive: true },
-        select: { baseSalary: true }
+        _sum: { baseSalary: true }
       }),
-      this.prisma.payrollRun.findMany({
-        where: {
-          deletedAt: null,
-          status: { not: PayrollRunStatus.CANCELLED },
-          period: periodWhere
-        },
-        select: {
-          status: true,
+      this.prisma.payrollRun.aggregate({
+        where: runWhere,
+        _sum: {
           totalGross: true,
           totalBonuses: true,
           totalPenalties: true,
           totalCommissions: true,
-          totalNet: true,
-          lines: {
-            where: { deletedAt: null },
-            select: {
-              workedHours: true,
-              overtimeHours: true
-            }
-          }
+          totalNet: true
         }
       }),
-      this.prisma.timeEntry.findMany({
+      this.prisma.payrollRun.aggregate({
+        where: { ...runWhere, status: PayrollRunStatus.PAID },
+        _sum: { totalNet: true }
+      }),
+      this.prisma.payrollLine.aggregate({
+        where: {
+          deletedAt: null,
+          payrollRun: runWhere
+        },
+        _sum: {
+          workedHours: true,
+          overtimeHours: true
+        }
+      }),
+      this.prisma.timeEntry.aggregate({
         where: {
           deletedAt: null,
           status: { in: [TimeEntryStatus.DRAFT, TimeEntryStatus.SUBMITTED] },
           ...(this.dateFilter(query) ? { date: this.dateFilter(query) } : {})
         },
-        select: { totalMinutes: true }
+        _sum: { totalMinutes: true }
       })
     ]);
-    const salaryFund = roundMoney(employees.reduce((sum, employee) => sum + decimalToNumber(employee.baseSalary), 0));
-    const accrued = roundMoney(runs.reduce((sum, run) => sum + decimalToNumber(run.totalGross), 0));
-    const bonuses = roundMoney(runs.reduce((sum, run) => sum + decimalToNumber(run.totalBonuses), 0));
-    const penalties = roundMoney(runs.reduce((sum, run) => sum + decimalToNumber(run.totalPenalties), 0));
-    const commissions = roundMoney(runs.reduce((sum, run) => sum + decimalToNumber(run.totalCommissions), 0));
-    const net = roundMoney(runs.reduce((sum, run) => sum + decimalToNumber(run.totalNet), 0));
-    const paid = roundMoney(
-      runs.reduce((sum, run) => (run.status === PayrollRunStatus.PAID ? sum + decimalToNumber(run.totalNet) : sum), 0)
-    );
-    const workedHours = roundQuantity(
-      runs.reduce((sum, run) => sum + run.lines.reduce((lineSum, line) => lineSum + decimalToNumber(line.workedHours), 0), 0)
-    );
-    const overtimeHours = roundQuantity(
-      runs.reduce((sum, run) => sum + run.lines.reduce((lineSum, line) => lineSum + decimalToNumber(line.overtimeHours), 0), 0)
-    );
+    const net = roundMoney(decimalToNumber(runTotals._sum.totalNet));
+    const paid = roundMoney(decimalToNumber(paidTotals._sum.totalNet));
 
     return {
       visible,
-      salaryFund,
-      accrued,
-      bonuses,
-      penalties,
-      commissions,
+      salaryFund: roundMoney(decimalToNumber(salaryFund._sum.baseSalary)),
+      accrued: roundMoney(decimalToNumber(runTotals._sum.totalGross)),
+      bonuses: roundMoney(decimalToNumber(runTotals._sum.totalBonuses)),
+      penalties: roundMoney(decimalToNumber(runTotals._sum.totalPenalties)),
+      commissions: roundMoney(decimalToNumber(runTotals._sum.totalCommissions)),
       net,
       paid,
       unpaid: roundMoney(net - paid),
-      workedHours,
-      overtimeHours,
-      unapprovedHours: roundQuantity(unapprovedEntries.reduce((sum, entry) => sum + entry.totalMinutes / 60, 0))
+      workedHours: roundQuantity(decimalToNumber(lineTotals._sum.workedHours)),
+      overtimeHours: roundQuantity(decimalToNumber(lineTotals._sum.overtimeHours)),
+      unapprovedHours: roundQuantity(decimalToNumber(unapprovedEntries._sum.totalMinutes) / 60)
     };
   }
 
@@ -319,46 +305,47 @@ export class AnalyticsService {
     }
 
     const salesWhere = this.buildSalesOrderWhere(query);
-    const [orders, invoiceDocuments, orderItems] = await Promise.all([
-      this.prisma.order.findMany({
+    const orderItemWhere: Prisma.OrderItemWhereInput = {
+      deletedAt: null,
+      order: salesWhere,
+      ...this.buildOrderItemCategoryFilter(query)
+    };
+    const unpaidOrderWhere: Prisma.OrderWhereInput = {
+      ...salesWhere,
+      paymentStatus: {
+        in: [PaymentStatus.UNPAID, PaymentStatus.PARTIALLY_PAID]
+      }
+    };
+    const [orders, invoiceDocuments, unpaidOrders, itemRevenueTotal, orderItems] = await Promise.all([
+      this.prisma.order.aggregate({
         where: salesWhere,
-        select: {
-          id: true,
-          total: true,
-          paidAmount: true,
-          paymentStatus: true
+        _count: { _all: true },
+        _sum: {
+          total: true
         }
       }),
-      this.prisma.document.findMany({
+      this.prisma.document.count({
         where: {
           deletedAt: null,
           type: DocumentType.INVOICE,
-          order: {
-            ...salesWhere,
-            paymentStatus: {
-              in: [PaymentStatus.UNPAID, PaymentStatus.PARTIALLY_PAID]
-            }
-          }
-        },
-        select: {
-          id: true,
-          order: {
-            select: {
-              total: true,
-              paidAmount: true
-            }
-          }
+          order: unpaidOrderWhere
         }
       }),
+      this.prisma.order.aggregate({
+        where: unpaidOrderWhere,
+        _sum: {
+          total: true,
+          paidAmount: true
+        }
+      }),
+      this.prisma.orderItem.aggregate({
+        where: orderItemWhere,
+        _sum: { total: true }
+      }),
       this.prisma.orderItem.findMany({
-        where: {
-          deletedAt: null,
-          order: salesWhere,
-          ...this.buildOrderItemCategoryFilter(query)
-        },
+        where: orderItemWhere,
         select: {
           quantity: true,
-          total: true,
           product: {
             select: {
               purchasePrice: true
@@ -372,8 +359,9 @@ export class AnalyticsService {
         }
       })
     ]);
-    const itemRevenue = roundMoney(orderItems.reduce((sum, item) => sum + decimalToNumber(item.total), 0));
-    const salesTotal = query.categoryId ? itemRevenue : roundMoney(orders.reduce((sum, order) => sum + decimalToNumber(order.total), 0));
+    const ordersCount = orders._count._all;
+    const itemRevenue = roundMoney(decimalToNumber(itemRevenueTotal._sum.total));
+    const salesTotal = query.categoryId ? itemRevenue : roundMoney(decimalToNumber(orders._sum.total));
     const costTotal = orderItems.reduce((sum, item) => {
       const purchasePrice = item.variant?.purchasePrice ?? item.product.purchasePrice;
 
@@ -384,20 +372,14 @@ export class AnalyticsService {
       return sum + decimalToNumber(item.quantity) * decimalToNumber(purchasePrice);
     }, 0);
     const margin = roundMoney(itemRevenue - costTotal);
-    const unpaidTotal = roundMoney(
-      invoiceDocuments.reduce((sum, document) => {
-        const order = document.order;
-
-        return sum + Math.max(0, decimalToNumber(order?.total) - decimalToNumber(order?.paidAmount));
-      }, 0)
-    );
+    const unpaidTotal = roundMoney(Math.max(0, decimalToNumber(unpaidOrders._sum.total) - decimalToNumber(unpaidOrders._sum.paidAmount)));
 
     return {
       financeVisible,
       salesTotal,
-      averageCheck: orders.length > 0 ? roundMoney(salesTotal / orders.length) : 0,
+      averageCheck: ordersCount > 0 ? roundMoney(salesTotal / ordersCount) : 0,
       unpaidInvoices: {
-        count: invoiceDocuments.length,
+        count: invoiceDocuments,
         total: unpaidTotal
       },
       margin,
@@ -406,82 +388,67 @@ export class AnalyticsService {
   }
 
   private async buildProducts(query: AnalyticsQueryDto, financeVisible: boolean) {
-    const items = await this.prisma.orderItem.findMany({
+    const groupedItems = await this.prisma.orderItem.groupBy({
+      by: ["productId"],
       where: {
         deletedAt: null,
         order: this.buildSalesOrderWhere(query),
         ...this.buildOrderItemCategoryFilter(query)
       },
-      select: {
-        orderId: true,
-        productId: true,
+      _sum: {
         quantity: true,
-        total: true,
-        product: {
-          select: productSelect
-        }
-      }
+        total: true
+      },
+      _count: { _all: true }
     });
-    const aggregates = new Map<string, ProductAggregate>();
-
-    for (const item of items) {
-      const current = aggregates.get(item.productId) ?? {
-        productId: item.productId,
-        product: item.product,
-        quantity: 0,
-        revenue: 0,
-        ordersCount: 0
-      };
-
-      current.quantity = roundQuantity(current.quantity + decimalToNumber(item.quantity));
-      current.revenue = roundMoney(current.revenue + decimalToNumber(item.total));
-      current.ordersCount += 1;
-      aggregates.set(item.productId, current);
-    }
+    const topItems = groupedItems
+      .sort((a, b) => decimalToNumber(b._sum.quantity) - decimalToNumber(a._sum.quantity))
+      .slice(0, 10);
+    const productIds = topItems.map((item) => item.productId);
+    const products = productIds.length
+      ? await this.prisma.product.findMany({
+          where: { id: { in: productIds }, deletedAt: null },
+          select: productSelect
+        })
+      : [];
+    const productMap = new Map(products.map((product) => [product.id, product]));
 
     return {
-      popular: Array.from(aggregates.values())
-        .sort((a, b) => b.quantity - a.quantity)
-        .slice(0, 10)
+      popular: topItems
+        .filter((item) => productMap.has(item.productId))
         .map((item) => ({
-          product: item.product,
-          quantity: item.quantity,
-          ordersCount: item.ordersCount,
-          revenue: financeVisible ? item.revenue : null
+          product: productMap.get(item.productId)!,
+          quantity: roundQuantity(decimalToNumber(item._sum.quantity)),
+          ordersCount: item._count._all,
+          revenue: financeVisible ? roundMoney(decimalToNumber(item._sum.total)) : null
         }))
     };
   }
 
   private async buildManagers(query: AnalyticsQueryDto, financeVisible: boolean) {
-    const orders = await this.prisma.order.findMany({
+    const groupedOrders = await this.prisma.order.groupBy({
+      by: ["managerId"],
       where: this.buildSalesOrderWhere(query),
-      select: {
-        id: true,
-        managerId: true,
-        total: true,
-        manager: {
-          select: managerSelect
-        }
-      }
+      _count: { _all: true },
+      _sum: { total: true }
     });
-    const aggregates = new Map<string, ManagerAggregate>();
-
-    for (const order of orders) {
-      const key = order.managerId ?? "unassigned";
-      const current = aggregates.get(key) ?? {
-        managerId: order.managerId,
-        manager: order.manager,
-        ordersCount: 0,
-        salesTotal: 0
-      };
-
-      current.ordersCount += 1;
-      current.salesTotal = roundMoney(current.salesTotal + decimalToNumber(order.total));
-      aggregates.set(key, current);
-    }
+    const managerIds = groupedOrders.flatMap((item) => (item.managerId ? [item.managerId] : []));
+    const managers = managerIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: managerIds }, deletedAt: null },
+          select: managerSelect
+        })
+      : [];
+    const managerMap = new Map(managers.map((manager) => [manager.id, manager]));
 
     return {
-      best: Array.from(aggregates.values())
+      best: groupedOrders
+        .map((item) => ({
+          managerId: item.managerId,
+          manager: item.managerId ? managerMap.get(item.managerId) ?? null : null,
+          ordersCount: item._count._all,
+          salesTotal: roundMoney(decimalToNumber(item._sum.total))
+        }))
         .sort((a, b) => (financeVisible ? b.salesTotal - a.salesTotal : b.ordersCount - a.ordersCount))
         .slice(0, 10)
         .map((item) => ({
@@ -671,59 +638,10 @@ export class AnalyticsService {
   }
 
   private async canViewFinance(actorId: string) {
-    const user = await this.prisma.user.findFirst({
-      where: {
-        id: actorId,
-        isActive: true,
-        deletedAt: null
-      },
-      select: {
-        primaryRole: true,
-        roles: {
-          where: { deletedAt: null },
-          select: {
-            role: {
-              select: {
-                code: true,
-                deletedAt: true,
-                permissions: {
-                  where: { deletedAt: null },
-                  select: {
-                    permission: {
-                      select: {
-                        key: true,
-                        deletedAt: true
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    });
-
-    if (!user) {
-      return false;
-    }
-
-    const roleCodes = new Set(user.roles.filter(({ role }) => !role.deletedAt).map(({ role }) => role.code));
-
-    if (user.primaryRole === RoleCode.SUPER_ADMIN || roleCodes.has(RoleCode.SUPER_ADMIN)) {
-      return true;
-    }
-
-    return user.roles.some(({ role }) =>
-      role.deletedAt
-        ? false
-        : role.permissions.some(({ permission }) =>
-            !permission.deletedAt && ["payments.read", "analytics.read_finance"].includes(permission.key)
-          )
-    );
+    return (await this.getAnalyticsAccess(actorId)).finance;
   }
 
-  private async canViewPayroll(actorId: string) {
+  private async getAnalyticsAccess(actorId: string) {
     const user = await this.prisma.user.findFirst({
       where: {
         id: actorId,
@@ -758,22 +676,29 @@ export class AnalyticsService {
     });
 
     if (!user) {
-      return false;
+      return { finance: false, payroll: false };
     }
 
     const roleCodes = new Set(user.roles.filter(({ role }) => !role.deletedAt).map(({ role }) => role.code));
 
     if (user.primaryRole === RoleCode.SUPER_ADMIN || roleCodes.has(RoleCode.SUPER_ADMIN)) {
-      return true;
+      return { finance: true, payroll: true };
     }
 
-    return user.roles.some(({ role }) =>
-      role.deletedAt
-        ? false
-        : role.permissions.some(({ permission }) =>
-            !permission.deletedAt && ["payroll.read", "payroll.manage"].includes(permission.key)
-          )
+    const permissions = new Set(
+      user.roles.flatMap(({ role }) =>
+        role.deletedAt
+          ? []
+          : role.permissions
+              .filter(({ permission }) => !permission.deletedAt)
+              .map(({ permission }) => permission.key)
+      )
     );
+
+    return {
+      finance: ["payments.read", "analytics.read_finance"].some((permission) => permissions.has(permission)),
+      payroll: ["payroll.read", "payroll.manage"].some((permission) => permissions.has(permission))
+    };
   }
 
   private buildPayrollPeriodWhere(query: AnalyticsQueryDto): Prisma.PayrollPeriodWhereInput {

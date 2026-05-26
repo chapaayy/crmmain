@@ -584,6 +584,8 @@ model Lead {
   @@index([contactId])
   @@index([assignedToId])
   @@index([nextContactAt])
+  @@index([createdAt])
+  @@index([assignedToId, createdAt])
   @@index([deletedAt])
 }
 
@@ -791,6 +793,7 @@ model StockMovement {
   @@index([productId])
   @@index([variantId])
   @@index([orderId])
+  @@index([type, createdAt])
   @@index([deletedAt])
 }
 
@@ -846,6 +849,10 @@ model Order {
   @@index([leadId])
   @@index([managerId])
   @@index([warehouseId])
+  @@index([createdAt])
+  @@index([managerId, createdAt])
+  @@index([paymentStatus, deletedAt])
+  @@index([status, deletedAt])
   @@index([deletedAt])
 }
 
@@ -872,6 +879,8 @@ model OrderItem {
   @@index([orderId])
   @@index([productId])
   @@index([variantId])
+  @@index([orderId, deletedAt])
+  @@index([productId, deletedAt])
   @@index([deletedAt])
 }
 
@@ -1005,6 +1014,8 @@ model Task {
   @@index([createdById])
   @@index([relatedType, relatedId])
   @@index([isEmployeeTask])
+  @@index([isEmployeeTask, assignedToId, status, dueAt])
+  @@index([isEmployeeTask, assigneeEmployeeId, status, dueAt])
   @@index([customerId])
   @@index([leadId])
   @@index([orderId])
@@ -1089,6 +1100,8 @@ model Notification {
   @@index([userId])
   @@index([type])
   @@index([readAt])
+  @@index([userId, readAt, deletedAt])
+  @@index([userId, createdAt])
   @@index([deletedAt])
 }
 
@@ -1176,6 +1189,7 @@ model WorkSchedule {
   @@index([employeeId])
   @@index([type])
   @@index([isActive])
+  @@index([employeeId, deletedAt, isActive])
   @@index([deletedAt])
 }
 
@@ -1200,6 +1214,7 @@ model WorkShift {
   @@index([scheduleId])
   @@index([date])
   @@index([status])
+  @@index([employeeId, date, deletedAt])
   @@index([deletedAt])
 }
 
@@ -1226,6 +1241,9 @@ model TimeEntry {
   @@index([approvedById])
   @@index([date])
   @@index([status])
+  @@index([date, status])
+  @@index([employeeId, date, status])
+  @@index([employeeId, date, deletedAt])
   @@index([deletedAt])
 }
 
@@ -1272,6 +1290,7 @@ model PayrollRun {
   @@index([calculatedById])
   @@index([approvedById])
   @@index([status])
+  @@index([periodId, status])
   @@index([deletedAt])
 }
 
@@ -1301,6 +1320,7 @@ model PayrollLine {
   @@unique([payrollRunId, employeeId])
   @@index([payrollRunId])
   @@index([employeeId])
+  @@index([payrollRunId, deletedAt])
   @@index([deletedAt])
 }
 
@@ -1400,6 +1420,8 @@ model ResponsibilityAssignment {
   @@index([userId])
   @@index([role])
   @@index([assignedById])
+  @@index([employeeId, responsibilityId])
+  @@index([userId, responsibilityId])
 }
 
 model ResponsibilityInstruction {
@@ -1472,6 +1494,9 @@ model SecretVaultItem {
   @@index([createdById])
   @@index([updatedById])
   @@index([type])
+  @@index([responsibilityId, deletedAt])
+  @@index([ownerUserId, deletedAt])
+  @@index([ownerEmployeeId, deletedAt])
   @@index([deletedAt])
 }
 
