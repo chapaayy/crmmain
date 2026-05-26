@@ -7,6 +7,7 @@ export interface JwtPayload {
   email: string;
   role: RoleCode;
   type: TokenKind;
+  jti?: string;
 }
 
 export interface JwtUser {

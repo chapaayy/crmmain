@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { JwtService, JwtSignOptions } from "@nestjs/jwt";
 import { AuditAction, User } from "@prisma/client";
 import * as bcrypt from "bcrypt";
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { CookieOptions } from "express";
 import { AuditService } from "../audit/audit.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -281,7 +281,8 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.primaryRole,
-      type
+      type,
+      jti: randomUUID()
     };
 
     return this.jwt.signAsync(payload, {

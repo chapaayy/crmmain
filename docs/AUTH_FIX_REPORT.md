@@ -14,12 +14,14 @@
 ## 2. Что исправлено
 
 - Refresh token больше не отзывается мгновенно при обычном `/auth/refresh`; старый токен остается валидным до expiry, logout/logout-all по-прежнему отзывают токены.
+- JWT tokens теперь получают уникальный `jti`, чтобы параллельные refresh/login в одну секунду не создавали одинаковый `tokenHash` и не падали в Prisma unique constraint.
 - `AuthProvider` держит строгие состояния `loading | authenticated | unauthenticated`.
 - Bootstrap сначала восстанавливает access token через `/auth/refresh`, затем загружает `/auth/me` с permissions и только после этого ставит `authenticated`.
 - `ApiClient` нормализует network/CORS/API-down ошибки в `ApiClientError` с `status = 0` и `isNetworkError = true`.
 - `401` обрабатывается через single-flight refresh: один refresh-запрос, остальные ждут общий promise и повторяются после успеха.
 - `Failed to fetch` больше не вызывает logout и не чистит session.
 - `ProtectedRoute` показывает retry screen при network error и редиректит на login только при подтвержденной невалидной refresh-сессии.
+- `ProtectedRoute` несколько раз тихо повторяет bootstrap при временных `5xx/429/network` ошибках, прежде чем показать Retry.
 - Frontend middleware больше не делает redirect на login по `crm_session_hint`.
 - `PermissionGate` имеет loading state для permissions.
 - Dashboard больше не показывает `Hidden`; после загрузки permissions выводит `Нет доступа`, если прав реально нет.
@@ -50,6 +52,7 @@
 - Нет server-side redirect до client bootstrap.
 - Access token может пропасть после hard reload, но refresh cookie восстанавливает его.
 - Старый refresh token не отзывается мгновенно во время refresh, поэтому abort navigation не оставляет браузер с уже отозванной cookie.
+- Новый refresh token всегда уникален за счет `jti`, поэтому серия refresh-запросов больше не должна превращаться в backend `500 Internal server error` из-за одинакового JWT.
 - Protected pages не монтируют бизнес-данные до authenticated.
 
 ## 6. Почему Failed to fetch больше не делает logout

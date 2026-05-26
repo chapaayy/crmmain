@@ -21,7 +21,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
     setError(null);
     setReady(false);
-    bootstrap()
+    retryBootstrap(bootstrap)
       .then((authenticated) => {
         if (!mounted) {
           return;
@@ -91,9 +91,36 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+async function retryBootstrap(bootstrap: () => Promise<boolean>) {
+  const delays = [0, 400, 900, 1500];
+  let lastError: unknown;
+
+  for (const delay of delays) {
+    if (delay > 0) {
+      await sleep(delay);
+    }
+
+    try {
+      return await bootstrap();
+    } catch (error) {
+      lastError = error;
+
+      if (!isRetryableBootstrapError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 function getBootstrapErrorMessage(error: unknown) {
   if (error instanceof ApiClientError && error.isNetworkError) {
     return "Не удалось подключиться к API. Сессия не сброшена. Проверьте соединение и повторите.";
+  }
+
+  if (error instanceof ApiClientError && (error.status >= 500 || error.status === 429)) {
+    return "API временно ответил ошибкой. Сессия не сброшена. Нажмите «Повторить», когда сервер будет доступен.";
   }
 
   if (error instanceof Error) {
@@ -101,4 +128,12 @@ function getBootstrapErrorMessage(error: unknown) {
   }
 
   return "Не удалось восстановить сессию. Проверьте соединение с API и попробуйте еще раз.";
+}
+
+function isRetryableBootstrapError(error: unknown) {
+  return error instanceof ApiClientError && (error.isNetworkError || error.status === 429 || error.status >= 500);
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
