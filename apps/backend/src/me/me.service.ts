@@ -249,20 +249,22 @@ export class MeService {
   constructor(private readonly prisma: PrismaService) {}
 
   async summary(userId: string) {
-    const user = await this.prisma.user.findFirst({
-      where: { id: userId, deletedAt: null, isActive: true },
-      select: userSummarySelect
-    });
+    const [user, employee] = await Promise.all([
+      this.prisma.user.findFirst({
+        where: { id: userId, deletedAt: null, isActive: true },
+        select: userSummarySelect
+      }),
+      this.prisma.employeeProfile.findFirst({
+        where: { userId, deletedAt: null },
+        select: employeeSelect
+      })
+    ]);
 
     if (!user) {
       throw new NotFoundException("Current user not found");
     }
 
     const access = buildAccess(user);
-    const employee = await this.prisma.employeeProfile.findFirst({
-      where: { userId, deletedAt: null },
-      select: employeeSelect
-    });
     const now = new Date();
     const today = startOfDay(now);
     const tomorrow = addDays(today, 1);
@@ -273,7 +275,26 @@ export class MeService {
       status: { notIn: [TaskStatus.DONE, TaskStatus.CANCELLED] }
     });
 
-    const [tasks, activeTasks, overdueTasks, responsibilities, schedule, todayShift, nextShift, monthTimeEntries, todayTimeEntries, unreadNotifications, notifications] =
+    const payrollPromise = employee && hasAnyPermission(access, ["payroll.read", "payroll.manage", "payroll.own"])
+      ? this.findMyPayroll(employee.id, now)
+      : Promise.resolve(null);
+
+    const [
+      tasks,
+      activeTasks,
+      overdueTasks,
+      responsibilities,
+      schedule,
+      todayShift,
+      nextShift,
+      monthApprovedTime,
+      unapprovedTimeEntries,
+      recentTimeEntries,
+      todayTimeEntries,
+      unreadNotifications,
+      notifications,
+      payroll
+    ] =
       await Promise.all([
         this.prisma.task.findMany({
           where: activeTaskWhere,
@@ -304,10 +325,18 @@ export class MeService {
           select: shiftSelect,
           orderBy: { date: "asc" }
         }) : Promise.resolve(null),
+        employee ? this.prisma.timeEntry.aggregate({
+          where: { employeeId: employee.id, deletedAt: null, date: { gte: monthStart, lt: monthEnd }, status: TimeEntryStatus.APPROVED },
+          _sum: { totalMinutes: true }
+        }) : Promise.resolve({ _sum: { totalMinutes: null } }),
+        employee ? this.prisma.timeEntry.count({
+          where: { employeeId: employee.id, deletedAt: null, date: { gte: monthStart, lt: monthEnd }, status: { not: TimeEntryStatus.APPROVED } }
+        }) : Promise.resolve(0),
         employee ? this.prisma.timeEntry.findMany({
           where: { employeeId: employee.id, deletedAt: null, date: { gte: monthStart, lt: monthEnd } },
           select: timeEntrySelect,
-          orderBy: [{ date: "desc" }, { startedAt: "desc" }]
+          orderBy: [{ date: "desc" }, { startedAt: "desc" }],
+          take: 8
         }) : Promise.resolve([]),
         employee ? this.prisma.timeEntry.findMany({
           where: { employeeId: employee.id, deletedAt: null, date: { gte: today, lt: tomorrow } },
@@ -320,22 +349,16 @@ export class MeService {
           select: notificationSelect,
           orderBy: { createdAt: "desc" },
           take: 8
-        })
+        }),
+        payrollPromise
       ]);
-
-    const payroll = employee && hasAnyPermission(access, ["payroll.read", "payroll.manage", "payroll.own"])
-      ? await this.findMyPayroll(employee.id, now)
-      : null;
 
     const secrets = hasAnyPermission(access, ["secrets.read_metadata"])
       ? await this.findMySecrets(userId, employee?.id, responsibilities.map((responsibility) => responsibility.id))
       : [];
 
-    const workedMinutesThisMonth = monthTimeEntries
-      .filter((entry) => entry.status === TimeEntryStatus.APPROVED)
-      .reduce((sum, entry) => sum + entry.totalMinutes, 0);
+    const workedMinutesThisMonth = monthApprovedTime._sum.totalMinutes ?? 0;
     const workedMinutesToday = todayTimeEntries.reduce((sum, entry) => sum + entry.totalMinutes, 0);
-    const unapprovedTimeEntries = monthTimeEntries.filter((entry) => entry.status !== TimeEntryStatus.APPROVED).length;
 
     return {
       user: serializeUser(user),
@@ -357,7 +380,7 @@ export class MeService {
       nextShift,
       timeEntries: {
         today: todayTimeEntries,
-        recent: monthTimeEntries.slice(0, 8)
+        recent: recentTimeEntries
       },
       payroll,
       secrets,

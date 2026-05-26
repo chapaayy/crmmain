@@ -169,3 +169,13 @@ Follow-up after observing `HTTP 502 on /analytics/dashboard` that succeeds after
 - The transient GET/HEAD retry window was increased to roughly 7.7 seconds total.
 - This keeps pages in loading state while Caddy/Next/backend has a short proxy hiccup after reload instead of immediately showing `HTTP 502`.
 - If a `502` still remains after this window, the backend/proxy is unavailable long enough that server logs should be checked.
+
+## 12. Startup speed follow-up
+
+Additional speed improvements:
+
+- `POST /auth/login` and `POST /auth/refresh` now return a hydrated user with roles and permissions.
+- The frontend uses that hydrated session directly and skips the extra `/auth/me` round-trip after login/refresh.
+- `/me/summary` now loads the user and employee profile in parallel.
+- `/me/summary` now calculates monthly approved/unapproved time with aggregate/count queries and only fetches the 8 recent entries needed by the UI.
+- Payroll summary loading starts in parallel with the rest of the home summary when the user has payroll access.

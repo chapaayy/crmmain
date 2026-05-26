@@ -73,6 +73,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [apiBaseUrl]);
 
+  const applySession = useCallback(async (session: AuthSession) => {
+    accessTokenRef.current = session.accessToken;
+    setSessionHint();
+
+    if (isHydratedUser(session.user)) {
+      const nextLocale = normalizeLocale(session.user.locale);
+
+      setUser(normalizeUser({ ...session.user, locale: nextLocale }));
+      setLocale(nextLocale);
+      storeLocale(nextLocale);
+    } else {
+      await fetchMe(session.accessToken);
+    }
+
+    setStatus("authenticated");
+    return session.accessToken;
+  }, [fetchMe]);
+
   const refreshAccessToken = useCallback(async () => {
     if (refreshPromiseRef.current) {
       debugAuth("refresh already running; waiting for existing refresh");
@@ -93,10 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           body: JSON.stringify({})
         });
 
-        accessTokenRef.current = session.accessToken;
-        setSessionHint();
-        await fetchMe(session.accessToken);
-        setStatus("authenticated");
+        await applySession(session);
         debugAuth("refresh success");
 
         return session.accessToken;
@@ -115,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
 
     return refreshPromiseRef.current;
-  }, [apiBaseUrl, clearSession, fetchMe]);
+  }, [apiBaseUrl, applySession, clearSession]);
 
   const api = useMemo(
     () =>
@@ -185,10 +200,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           body: JSON.stringify({ email, password })
         });
 
-        accessTokenRef.current = session.accessToken;
-        setSessionHint();
-        await fetchMe(session.accessToken);
-        setStatus("authenticated");
+        await applySession(session);
         toast({ title: "Signed in", variant: "success" });
       } catch (error) {
         if (error instanceof ApiClientError && error.isNetworkError) {
@@ -203,7 +215,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
     },
-    [apiBaseUrl, clearSession, fetchMe, toast]
+    [apiBaseUrl, applySession, clearSession, toast]
   );
 
   const logout = useCallback(async () => {
@@ -332,6 +344,10 @@ function normalizeUser(user: CurrentUser): CurrentUser {
     locale: normalizeLocale(user.locale),
     permissions: user.permissions ?? []
   };
+}
+
+function isHydratedUser(user: CurrentUser | undefined): user is CurrentUser {
+  return Boolean(user && Array.isArray(user.roles) && Array.isArray(user.permissions));
 }
 
 function getStoredLocale(): Locale {

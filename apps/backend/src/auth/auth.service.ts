@@ -10,7 +10,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { LoginDto } from "./dto/login.dto";
 import { JwtPayload } from "./types";
 
-type SafeUser = Pick<User, "id" | "email" | "name" | "firstName" | "lastName" | "locale" | "primaryRole">;
+type SafeUser = Pick<User, "id" | "email" | "primaryRole">;
 
 @Injectable()
 export class AuthService {
@@ -245,8 +245,11 @@ export class AuthService {
   }
 
   private async issueSession(user: SafeUser) {
-    const accessToken = await this.signToken(user, "access");
-    const refreshToken = await this.signToken(user, "refresh");
+    const [accessToken, refreshToken, currentUser] = await Promise.all([
+      this.signToken(user, "access"),
+      this.signToken(user, "refresh"),
+      this.me(user.id)
+    ]);
 
     await this.prisma.refreshToken.create({
       data: {
@@ -259,7 +262,7 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      user: this.toSafeUser(user)
+      user: currentUser.user
     };
   }
 
@@ -315,18 +318,6 @@ export class AuthService {
 
   private hashToken(token: string) {
     return createHash("sha256").update(token).digest("hex");
-  }
-
-  private toSafeUser(user: SafeUser) {
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      locale: user.locale,
-      role: user.primaryRole
-    };
   }
 
   private durationToMs(value: string) {
