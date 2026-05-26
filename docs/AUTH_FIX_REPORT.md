@@ -30,6 +30,7 @@
 - CRM HTML/dynamic routes теперь отдаются с `Cache-Control: no-store`, чтобы браузер не запускал старый frontend bundle после деплоя.
 - `/home` повторяет `/me/summary` при временном `Failed to fetch` / `5xx` / `429`, а ошибка не сбрасывает сессию.
 - Browser frontend теперь использует same-origin API base `/api`; Caddy проксирует `/api/*` в backend. Это убирает зависимость UI от cross-subdomain CORS для обычных CRM-запросов.
+- Next frontend тоже проксирует `/api/*` во внутренний backend через `INTERNAL_API_URL`, поэтому `/api` работает даже если запрос дошел до Next, а не был перехвачен Caddy.
 - Refresh cookie path по умолчанию `/`, чтобы cookie работала и для `/api/auth/*` на основном домене.
 
 ## 3. Как теперь работает auth bootstrap
