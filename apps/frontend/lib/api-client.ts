@@ -153,7 +153,7 @@ export class ApiClient {
       headers.set("Content-Type", "application/json");
     }
 
-    const response = await fetchWithNetworkError(
+    const response = await fetchWithTransientRetry(
       `${this.baseUrl}${path}`,
       {
         ...init,
@@ -167,19 +167,14 @@ export class ApiClient {
 
     if (!response.ok) {
       const errorBody = body as ApiErrorBody | undefined;
-      throw new ApiClientError(
-        errorBody?.error?.message ?? errorBody?.message ?? "Request failed",
-        response.status,
-        errorBody?.error?.code,
-        errorBody?.error?.details
-      );
+      throw createResponseError(response, path, text, errorBody);
     }
 
     return body as T;
   }
 
   private async fetchText(path: string, init: RequestInit = {}) {
-    const response = await fetchWithNetworkError(
+    const response = await fetchWithTransientRetry(
       `${this.baseUrl}${path}`,
       {
         ...init,
@@ -191,19 +186,14 @@ export class ApiClient {
 
     if (!response.ok) {
       const errorBody = parseBody<ApiErrorBody>(text);
-      throw new ApiClientError(
-        errorBody?.error?.message ?? errorBody?.message ?? "Request failed",
-        response.status,
-        errorBody?.error?.code,
-        errorBody?.error?.details
-      );
+      throw createResponseError(response, path, text, errorBody);
     }
 
     return text;
   }
 
   private async fetchBlob(path: string, init: RequestInit = {}) {
-    const response = await fetchWithNetworkError(
+    const response = await fetchWithTransientRetry(
       `${this.baseUrl}${path}`,
       {
         ...init,
@@ -215,17 +205,15 @@ export class ApiClient {
     if (!response.ok) {
       const text = await response.text();
       const errorBody = parseBody<ApiErrorBody>(text);
-      throw new ApiClientError(
-        errorBody?.error?.message ?? errorBody?.message ?? "Request failed",
-        response.status,
-        errorBody?.error?.code,
-        errorBody?.error?.details
-      );
+      throw createResponseError(response, path, text, errorBody);
     }
 
     return response.blob();
   }
 }
+
+const TRANSIENT_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
+const TRANSIENT_RETRY_DELAYS_MS = [250, 800];
 
 function parseBody<T>(text: string): T | undefined {
   try {
@@ -243,6 +231,86 @@ async function fetchWithNetworkError(url: string, init: RequestInit, path: strin
     const message = error instanceof Error ? error.message : "Failed to fetch";
     throw new ApiClientError(message, 0, "NETWORK_ERROR", undefined, { isNetworkError: true });
   }
+}
+
+async function fetchWithTransientRetry(url: string, init: RequestInit, path: string) {
+  const canRetry = isRetryableMethod(init.method);
+  const delays = canRetry ? [0, ...TRANSIENT_RETRY_DELAYS_MS] : [0];
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < delays.length; attempt += 1) {
+    const delay = delays[attempt] ?? 0;
+
+    if (delay > 0) {
+      await sleep(delay);
+    }
+
+    try {
+      const response = await fetchWithNetworkError(url, init, path);
+
+      if (!canRetry || !TRANSIENT_STATUS_CODES.has(response.status) || attempt === delays.length - 1) {
+        return response;
+      }
+
+      debugApi(`transient HTTP ${response.status}; retrying`, path);
+    } catch (error) {
+      lastError = error;
+
+      if (
+        !canRetry ||
+        !(error instanceof ApiClientError && error.isNetworkError) ||
+        attempt === delays.length - 1
+      ) {
+        throw error;
+      }
+
+      debugApi("network error; retrying", path);
+    }
+  }
+
+  throw lastError;
+}
+
+function createResponseError(response: Response, path: string, text: string, errorBody?: ApiErrorBody) {
+  return new ApiClientError(
+    buildResponseErrorMessage(response, path, text, errorBody),
+    response.status,
+    errorBody?.error?.code,
+    errorBody?.error?.details ?? buildResponseErrorDetails(path, text)
+  );
+}
+
+function buildResponseErrorMessage(response: Response, path: string, text: string, errorBody?: ApiErrorBody) {
+  const serverMessage = errorBody?.error?.message ?? errorBody?.message;
+  const statusLabel = `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ""}`;
+
+  if (serverMessage) {
+    return `${serverMessage} (${statusLabel}, ${path})`;
+  }
+
+  const responseText = compactResponseText(text);
+
+  return responseText ? `${statusLabel} on ${path}: ${responseText}` : `${statusLabel} on ${path}`;
+}
+
+function buildResponseErrorDetails(path: string, text: string) {
+  const responseText = compactResponseText(text);
+
+  return responseText ? { path, responseText } : { path };
+}
+
+function compactResponseText(text: string) {
+  return text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180);
+}
+
+function isRetryableMethod(method?: string) {
+  const normalizedMethod = (method ?? "GET").toUpperCase();
+
+  return normalizedMethod === "GET" || normalizedMethod === "HEAD";
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function debugApi(message: string, path: string) {

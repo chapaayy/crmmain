@@ -146,3 +146,20 @@ docker compose config
 9. Ожидаемо: ошибка подключения с Retry, session не очищается.
 10. Удалить/испортить refresh cookie.
 11. Ожидаемо: redirect на `/login`.
+
+## 11. Follow-up: generic "Request failed" after reload
+
+Additional fix after production feedback:
+
+- `apps/frontend/next.config.mjs` now always rewrites `/api/:path*` to the internal backend URL. This keeps the same-origin `/api` fallback working even if `NEXT_PUBLIC_API_URL` was not present at frontend build time or Caddy is not the component handling `/api`.
+- `apps/frontend/lib/api-client.ts` now retries transient GET/HEAD failures (`408`, `425`, `429`, `500`, `502`, `503`, `504` and network errors) with short delays before showing an error.
+- API errors now include HTTP status and route, for example `HTTP 502 Bad Gateway on /analytics/dashboard`, instead of the unhelpful `Request failed`.
+- POST/PUT/PATCH/DELETE requests are not automatically retried, so create/update actions are not duplicated.
+
+Server env expected for Docker:
+
+```bash
+NEXT_PUBLIC_API_URL=/api
+INTERNAL_API_URL=http://backend:3001
+AUTH_COOKIE_PATH=/
+```
