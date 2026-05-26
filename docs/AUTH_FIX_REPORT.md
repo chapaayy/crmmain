@@ -27,6 +27,8 @@
 - Dashboard больше не показывает `Hidden`; после загрузки permissions выводит `Нет доступа`, если прав реально нет.
 - Основные protected pages и detail pages получили локальный guard: `load()` не выполняет API-запросы, пока `auth.status !== "authenticated"`.
 - `NotificationBell` и SSE/polling уведомлений стартуют только после authenticated.
+- CRM HTML/dynamic routes теперь отдаются с `Cache-Control: no-store`, чтобы браузер не запускал старый frontend bundle после деплоя.
+- `/home` повторяет `/me/summary` при временном `Failed to fetch` / `5xx` / `429`, а ошибка не сбрасывает сессию.
 
 ## 3. Как теперь работает auth bootstrap
 
@@ -54,6 +56,7 @@
 - Старый refresh token не отзывается мгновенно во время refresh, поэтому abort navigation не оставляет браузер с уже отозванной cookie.
 - Новый refresh token всегда уникален за счет `jti`, поэтому серия refresh-запросов больше не должна превращаться в backend `500 Internal server error` из-за одинакового JWT.
 - Protected pages не монтируют бизнес-данные до authenticated.
+- Dynamic frontend pages не кешируются браузером, поэтому обычный reload после деплоя получает свежий HTML с актуальными JS chunks.
 
 ## 6. Почему Failed to fetch больше не делает logout
 

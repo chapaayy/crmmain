@@ -4,9 +4,17 @@
 
 https://{$CRM_DOMAIN} {
 	encode zstd gzip
+	@dynamic {
+		not path /_next/static/* /favicon.ico /robots.txt /sitemap.xml
+	}
 	header {
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
+	}
+	header @dynamic {
+		Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate"
+		Pragma "no-cache"
+		Expires "0"
 	}
 	reverse_proxy frontend:{$FRONTEND_PORT}
 }
@@ -16,6 +24,7 @@ https://{$API_DOMAIN} {
 	header {
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
+		Cache-Control "no-store"
 	}
 
 	# Uploads are not served directly from the volume.

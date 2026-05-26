@@ -31,6 +31,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { MetricCard } from "@/components/workspace/metric-card";
 import { PageHeader } from "@/components/workspace/page-header";
 import { ErrorState, LoadingState } from "@/components/workspace/states";
+import { ApiClientError } from "@/lib/api-client";
 import type { CurrentUser } from "@/lib/types";
 
 interface MySummary {
@@ -103,10 +104,10 @@ export function MyHomePage() {
     setError(null);
 
     try {
-      const response = await auth.api.request<MySummary>("/me/summary");
+      const response = await loadSummaryWithRetry(() => auth.api.request<MySummary>("/me/summary"));
       setData(response);
     } catch (requestError) {
-      const message = requestError instanceof Error ? requestError.message : "Не удалось загрузить рабочий стол";
+      const message = getHomeErrorMessage(requestError);
       setError(message);
       toast({ title: "Не удалось загрузить рабочий стол", description: message, variant: "error" });
     } finally {
@@ -671,4 +672,47 @@ function getInitials(value: string) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("") || "U";
+}
+
+async function loadSummaryWithRetry(load: () => Promise<MySummary>) {
+  const delays = [0, 350, 900, 1500];
+  let lastError: unknown;
+
+  for (const delay of delays) {
+    if (delay > 0) {
+      await sleep(delay);
+    }
+
+    try {
+      return await load();
+    } catch (error) {
+      lastError = error;
+
+      if (!isRetryableHomeError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+function isRetryableHomeError(error: unknown) {
+  return error instanceof ApiClientError && (error.isNetworkError || error.status === 429 || error.status >= 500);
+}
+
+function getHomeErrorMessage(error: unknown) {
+  if (error instanceof ApiClientError && error.isNetworkError) {
+    return "Не удалось подключиться к API. Сессия не сброшена. Нажмите «Повторить» или обновите страницу.";
+  }
+
+  if (error instanceof ApiClientError && (error.status === 429 || error.status >= 500)) {
+    return "API временно ответил ошибкой. Сессия не сброшена. Нажмите «Повторить».";
+  }
+
+  return error instanceof Error ? error.message : "Не удалось загрузить рабочий стол";
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
