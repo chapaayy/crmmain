@@ -35,17 +35,17 @@ export function AppShell({ children }: { children: ReactNode }) {
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
-      <Topbar
-        sidebarOpen={desktopSidebarOpen}
-        onOpenSidebar={() => setSidebarOpen(true)}
-        onToggleSidebar={toggleDesktopSidebar}
-      />
       <div
         className={cn(
           "min-w-0 transition-[padding] duration-500 crm-panel-motion",
           desktopSidebarOpen ? "lg:pl-[19.5rem]" : "lg:pl-0"
         )}
       >
+        <Topbar
+          sidebarOpen={desktopSidebarOpen}
+          onOpenSidebar={() => setSidebarOpen(true)}
+          onToggleSidebar={toggleDesktopSidebar}
+        />
         <div className="min-h-[calc(100vh-4rem)]">{children}</div>
       </div>
     </div>

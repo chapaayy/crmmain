@@ -34,7 +34,7 @@ export function Topbar({
   return (
     <header
       className={cn(
-        "sticky top-0 z-30 border-b border-border/70 bg-background/70 backdrop-blur-xl transition-transform duration-500 crm-panel-motion will-change-transform",
+        "sticky top-0 z-30 border-b border-transparent bg-transparent backdrop-blur-sm transition-transform duration-500 crm-panel-motion will-change-transform",
         hidden && "-translate-y-[calc(100%+1px)]"
       )}
     >

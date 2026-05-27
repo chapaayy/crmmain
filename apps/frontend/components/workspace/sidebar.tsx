@@ -36,7 +36,7 @@ export function Sidebar({
     <>
       <aside
         className={cn(
-          "fixed bottom-3 left-3 top-[4.75rem] z-40 hidden w-[18rem] overflow-hidden rounded-2xl border border-sidebar-border/90 bg-sidebar/95 shadow-panel shadow-black/35 backdrop-blur-xl transition-[transform,opacity] duration-500 crm-panel-motion will-change-transform lg:block",
+          "fixed inset-y-3 left-3 z-40 hidden w-[18rem] overflow-hidden rounded-2xl border border-sidebar-border/90 bg-sidebar/95 shadow-panel shadow-black/35 backdrop-blur-xl transition-[transform,opacity] duration-500 crm-panel-motion will-change-transform lg:block",
           desktopOpen ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-[calc(100%+1.5rem)] opacity-0"
         )}
       >
