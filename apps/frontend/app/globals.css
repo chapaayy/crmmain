@@ -37,6 +37,7 @@
   --sidebar-active: 178 69% 12%;
   --sidebar-hover: 214 34% 12%;
   --glow-primary: 187 89% 58%;
+  --ease-panel: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 html {
@@ -146,7 +147,12 @@ html {
   }
 
   .crm-control {
-    @apply border border-border/80 bg-card/70 text-foreground shadow-sm shadow-black/10 transition-all duration-200 hover:border-primary/45 hover:bg-sidebar-hover/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55;
+    @apply border border-border/80 bg-card/70 text-foreground shadow-sm shadow-black/10 transition-all duration-300 hover:border-primary/45 hover:bg-sidebar-hover/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55;
+    transition-timing-function: var(--ease-panel);
+  }
+
+  .crm-panel-motion {
+    transition-timing-function: var(--ease-panel);
   }
 
   .shimmer {

@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Boxes, X } from "lucide-react";
+import { Boxes, PanelLeftClose, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { menuGroups, menuItems } from "@/lib/navigation";
@@ -12,10 +12,14 @@ import { cn } from "@/lib/utils";
 
 export function Sidebar({
   open,
-  onClose
+  desktopOpen = true,
+  onClose,
+  onDesktopClose
 }: {
   open?: boolean;
+  desktopOpen?: boolean;
   onClose?: () => void;
+  onDesktopClose?: () => void;
 }) {
   const pathname = usePathname();
   const auth = useAuth();
@@ -27,12 +31,18 @@ export function Sidebar({
       pathname={pathname}
       onNavigate={onClose}
       onClose={onClose}
+      onDesktopClose={onDesktopClose}
     />
   );
 
   return (
     <>
-      <aside className="fixed inset-y-3 left-3 z-40 hidden w-[18rem] overflow-hidden rounded-2xl border border-sidebar-border/90 bg-sidebar/95 shadow-panel shadow-black/35 backdrop-blur-xl lg:block">
+      <aside
+        className={cn(
+          "fixed inset-y-3 left-3 z-40 hidden w-[18rem] overflow-hidden rounded-2xl border border-sidebar-border/90 bg-sidebar/95 shadow-panel shadow-black/35 backdrop-blur-xl transition-[transform,opacity] duration-500 crm-panel-motion will-change-transform lg:block",
+          desktopOpen ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-[calc(100%+1.5rem)] opacity-0"
+        )}
+      >
         {content}
       </aside>
 
@@ -40,11 +50,11 @@ export function Sidebar({
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
             aria-label="Закрыть меню"
-            className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/75 backdrop-blur-sm transition-opacity duration-300 crm-panel-motion"
             type="button"
             onClick={onClose}
           />
-          <aside className="relative m-3 h-[calc(100%-1.5rem)] w-[min(20rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-sidebar-border/90 bg-sidebar/95 shadow-panel">
+          <aside className="relative m-3 h-[calc(100%-1.5rem)] w-[min(20rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-sidebar-border/90 bg-sidebar/95 shadow-panel transition-transform duration-500 crm-panel-motion">
             {content}
           </aside>
         </div>
@@ -57,12 +67,14 @@ export function SidebarContent({
   items,
   pathname,
   onNavigate,
-  onClose
+  onClose,
+  onDesktopClose
 }: {
   items: MenuItem[];
   pathname: string;
   onNavigate?: () => void;
   onClose?: () => void;
+  onDesktopClose?: () => void;
 }) {
   const activeHref = getActiveHref(pathname, items);
 
@@ -77,6 +89,9 @@ export function SidebarContent({
           <div className="truncate text-sm font-semibold text-foreground">CRM Мешки</div>
           <div className="truncate text-xs text-muted-foreground">Рабочая область</div>
         </div>
+        <Button className="hidden lg:inline-flex" size="icon" type="button" variant="ghost" onClick={onDesktopClose}>
+          <PanelLeftClose className="h-4 w-4" />
+        </Button>
         <Button className="lg:hidden" size="icon" type="button" variant="ghost" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
@@ -141,20 +156,20 @@ export function SidebarItem({
     <Link
       href={item.href}
       className={cn(
-        "group relative flex h-10 items-center gap-3 overflow-hidden rounded-xl border border-transparent px-3 text-sm font-medium text-muted-foreground transition-all duration-200 hover:translate-x-0.5 hover:border-primary/20 hover:bg-primary/10 hover:text-foreground",
+        "group relative flex h-10 items-center gap-3 overflow-hidden rounded-xl border border-transparent px-3 text-sm font-medium text-muted-foreground transition-all duration-300 crm-panel-motion hover:translate-x-0.5 hover:border-primary/20 hover:bg-primary/10 hover:text-foreground",
         active && "border-primary/35 bg-sidebar-active text-primary shadow-glow"
       )}
       onClick={onNavigate}
     >
       <span
         className={cn(
-          "absolute inset-y-2 left-0 w-0.5 rounded-r-full bg-transparent transition-colors",
+          "absolute inset-y-2 left-0 w-0.5 rounded-r-full bg-transparent transition-colors duration-300 crm-panel-motion",
           active && "bg-primary"
         )}
       />
       <item.icon
         className={cn(
-          "h-4 w-4 text-muted-foreground transition-all duration-200 group-hover:scale-105 group-hover:text-primary",
+          "h-4 w-4 text-muted-foreground transition-all duration-300 crm-panel-motion group-hover:scale-105 group-hover:text-primary",
           active && "text-primary"
         )}
       />

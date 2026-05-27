@@ -24,7 +24,7 @@ export function MetricCard({
         <div className="flex items-start gap-3">
           <div
             className={cn(
-              "grid h-11 w-11 shrink-0 place-items-center rounded-2xl border transition-all duration-200 group-hover:scale-[1.03]",
+              "grid h-11 w-11 shrink-0 place-items-center rounded-2xl border transition-all duration-300 crm-panel-motion group-hover:scale-[1.03]",
               tone === "primary" && "border-primary/30 bg-primary/10 text-primary shadow-glow",
               tone === "success" && "border-success/30 bg-success/15 text-emerald-300",
               tone === "warning" && "border-warning/30 bg-warning/15 text-amber-300",

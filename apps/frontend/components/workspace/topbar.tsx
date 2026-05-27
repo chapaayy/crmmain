@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Languages, LogOut, Menu, Search, ShieldCheck, UserCircle } from "lucide-react";
+import { ChevronDown, Languages, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, ShieldCheck, UserCircle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Badge } from "@/components/ui/badge";
@@ -15,18 +15,43 @@ import { menuItems } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { getActiveHref, getVisibleMenuItems, isActive } from "./sidebar";
 
-export function Topbar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
+export function Topbar({
+  onOpenSidebar,
+  onToggleSidebar,
+  sidebarOpen
+}: {
+  onOpenSidebar: () => void;
+  onToggleSidebar: () => void;
+  sidebarOpen: boolean;
+}) {
   const pathname = usePathname();
   const auth = useAuth();
   const title = useMemo(() => getCurrentTitle(pathname), [pathname]);
   const visibleItems = getVisibleMenuItems(auth);
   const crumbs = title === "Главная" ? ["Обзор", title] : ["CRM Мешки", title];
+  const { hidden, compact } = useHeaderHeadroom();
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border/70 bg-background/70 backdrop-blur-xl">
-      <div className="flex h-16 items-center gap-3 px-4 sm:px-5 xl:px-6">
+    <header
+      className={cn(
+        "sticky top-0 z-30 border-b border-border/70 bg-background/70 backdrop-blur-xl transition-[transform,height,background-color,border-color] duration-500 crm-panel-motion will-change-transform",
+        hidden && "-translate-y-[calc(100%+1px)]",
+        compact && "bg-background/80"
+      )}
+    >
+      <div className={cn("flex items-center gap-3 px-4 transition-[height,padding] duration-500 crm-panel-motion sm:px-5 xl:px-6", compact ? "h-14" : "h-16")}>
         <Button aria-label="Открыть меню" className="lg:hidden" size="icon" type="button" variant="outline" onClick={onOpenSidebar}>
           <Menu className="h-4 w-4" />
+        </Button>
+        <Button
+          aria-label={sidebarOpen ? "Скрыть левое меню" : "Показать левое меню"}
+          className="hidden lg:inline-flex"
+          size="icon"
+          type="button"
+          variant="outline"
+          onClick={onToggleSidebar}
+        >
+          {sidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
         </Button>
 
         <div className="min-w-0 flex-1">
@@ -38,7 +63,7 @@ export function Topbar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
               </span>
             ))}
           </div>
-          <h1 className="mt-0.5 truncate text-lg font-semibold tracking-normal text-foreground">{title}</h1>
+          <h1 className={cn("mt-0.5 truncate font-semibold tracking-normal text-foreground transition-all duration-500 crm-panel-motion", compact ? "text-base" : "text-lg")}>{title}</h1>
         </div>
 
         <div className="relative hidden w-full max-w-sm xl:block">
@@ -55,7 +80,7 @@ export function Topbar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
 
         <NotificationBell />
 
-        <label className="hidden h-10 items-center gap-2 rounded-xl border border-border/80 bg-card/70 px-2 text-sm shadow-sm shadow-black/10 transition-colors hover:border-primary/35 md:flex">
+        <label className="hidden h-10 items-center gap-2 rounded-xl border border-border/80 bg-card/70 px-2 text-sm shadow-sm shadow-black/10 transition-colors duration-300 crm-panel-motion hover:border-primary/35 md:flex">
           <Languages className="h-4 w-4 text-muted-foreground" />
           <span className="sr-only">Язык</span>
           <select
@@ -78,6 +103,49 @@ export function Topbar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
   );
 }
 
+function useHeaderHeadroom() {
+  const [hidden, setHidden] = useState(false);
+  const [compact, setCompact] = useState(false);
+
+  useEffect(() => {
+    let lastY = window.scrollY;
+    let ticking = false;
+
+    const update = () => {
+      const currentY = window.scrollY;
+      const delta = currentY - lastY;
+
+      setCompact(currentY > 28);
+
+      if (currentY < 48) {
+        setHidden(false);
+      } else if (delta > 10 && currentY > 140) {
+        setHidden(true);
+      } else if (delta < -8) {
+        setHidden(false);
+      }
+
+      lastY = currentY;
+      ticking = false;
+    };
+
+    const onScroll = () => {
+      if (ticking) {
+        return;
+      }
+
+      ticking = true;
+      window.requestAnimationFrame(update);
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return { hidden, compact };
+}
+
 function MobileQuickNav({ items, pathname }: { items: ReturnType<typeof getVisibleMenuItems>; pathname: string }) {
   const activeHref = getActiveHref(pathname, items);
 
@@ -93,7 +161,7 @@ function MobileQuickNav({ items, pathname }: { items: ReturnType<typeof getVisib
             key={item.href}
             href={item.href}
             className={cn(
-              "flex h-10 items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-sidebar-hover hover:text-foreground",
+              "flex h-10 items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground transition-colors duration-300 crm-panel-motion hover:bg-sidebar-hover hover:text-foreground",
               item.href === activeHref && "bg-sidebar-active text-primary"
             )}
           >
@@ -133,7 +201,7 @@ export function UserMenu() {
             <div className="truncate text-xs text-muted-foreground">{auth.user?.email}</div>
           </div>
           <Link
-            className="mt-2 flex h-10 items-center rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-sidebar-hover hover:text-foreground"
+            className="mt-2 flex h-10 items-center rounded-xl px-3 text-sm text-muted-foreground transition-colors duration-300 crm-panel-motion hover:bg-sidebar-hover hover:text-foreground"
             href="/settings"
             onClick={() => setOpen(false)}
           >
