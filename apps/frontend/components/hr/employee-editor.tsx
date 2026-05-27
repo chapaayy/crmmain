@@ -87,6 +87,8 @@ export function EmployeeEditor({ employeeId, mode = "view" }: { employeeId?: str
   const [payrollAdjustments, setPayrollAdjustments] = useState<PayrollAdjustment[]>([]);
   const [employeeSecrets, setEmployeeSecrets] = useState<SecretVaultItem[]>([]);
   const [activeTab, setActiveTab] = useState<EmployeeTab>("overview");
+  const [loadedTabs, setLoadedTabs] = useState<EmployeeTab[]>([]);
+  const [tabLoading, setTabLoading] = useState(false);
   const [taskStatusFilter, setTaskStatusFilter] = useState("");
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
@@ -115,16 +117,15 @@ export function EmployeeEditor({ employeeId, mode = "view" }: { employeeId?: str
     setLoading(true);
 
     try {
-      const [employeeResponse, usersResponse, responsibilitiesResponse, tasksResponse, timeEntriesResponse, shiftsResponse, adjustmentsResponse, secretsResponse] =
+      const shouldLoadOverviewData = Boolean(employeeId && !isEditMode);
+      const [employeeResponse, usersResponse, responsibilitiesResponse, tasksResponse, timeEntriesResponse, shiftsResponse] =
         await Promise.all([
           employeeId ? auth.api.request<EmployeeResponse>(`/employees/${employeeId}`) : Promise.resolve(null),
-          auth.hasPermission("users.read") ? auth.api.request<UsersResponse>("/users?limit=100") : Promise.resolve(null),
-          employeeId && canReadResponsibilities ? auth.api.request<{ data: Responsibility[] }>(`/employees/${employeeId}/responsibilities`) : Promise.resolve(null),
-          employeeId && canReadEmployeeTasks ? auth.api.request<PaginatedResponse<EmployeeTask>>(`/employee-tasks?assigneeEmployeeId=${employeeId}&limit=20`) : Promise.resolve(null),
-          employeeId && canReadAttendance ? auth.api.request<PaginatedResponse<TimeEntry>>(`/time-entries?employeeId=${employeeId}&limit=20`) : Promise.resolve(null),
-          employeeId && canReadAttendance ? auth.api.request<PaginatedResponse<WorkShift>>(`/work-shifts?employeeId=${employeeId}&limit=20`) : Promise.resolve(null),
-          employeeId && canReadPayroll ? auth.api.request<PaginatedResponse<PayrollAdjustment>>(`/payroll/adjustments?employeeId=${employeeId}&limit=10`) : Promise.resolve(null),
-          employeeId && canReadSecrets ? auth.api.request<PaginatedResponse<SecretVaultItem>>(`/secrets?ownerEmployeeId=${employeeId}&limit=20`) : Promise.resolve(null)
+          isEditMode && auth.hasPermission("users.read") ? auth.api.request<UsersResponse>("/users?limit=100") : Promise.resolve(null),
+          shouldLoadOverviewData && canReadResponsibilities ? auth.api.request<{ data: Responsibility[] }>(`/employees/${employeeId}/responsibilities`) : Promise.resolve(null),
+          shouldLoadOverviewData && canReadEmployeeTasks ? auth.api.request<PaginatedResponse<EmployeeTask>>(`/employee-tasks?assigneeEmployeeId=${employeeId}&limit=20`) : Promise.resolve(null),
+          shouldLoadOverviewData && canReadAttendance ? auth.api.request<PaginatedResponse<TimeEntry>>(`/time-entries?employeeId=${employeeId}&limit=20`) : Promise.resolve(null),
+          shouldLoadOverviewData && canReadAttendance ? auth.api.request<PaginatedResponse<WorkShift>>(`/work-shifts?employeeId=${employeeId}&limit=20`) : Promise.resolve(null)
         ]);
 
       if (employeeResponse) {
@@ -156,20 +157,86 @@ export function EmployeeEditor({ employeeId, mode = "view" }: { employeeId?: str
       setEmployeeTasks(tasksResponse?.data ?? []);
       setTimeEntries(timeEntriesResponse?.data ?? []);
       setWorkShifts(shiftsResponse?.data ?? []);
-      setPayrollAdjustments(adjustmentsResponse?.data ?? []);
-      setEmployeeSecrets(secretsResponse?.data ?? []);
+
+      if (shouldLoadOverviewData) {
+        setLoadedTabs(["overview", "schedule", "responsibilities", "tasks", "attendance"]);
+      }
     } catch (error) {
       toast({ title: "Не удалось загрузить сотрудника", description: error instanceof Error ? error.message : undefined, variant: "error" });
     } finally {
       setLoading(false);
     }
-  }, [auth, canReadAttendance, canReadEmployeeTasks, canReadPayroll, canReadResponsibilities, canReadSecrets, employeeId, toast]);
+  }, [auth, canReadAttendance, canReadEmployeeTasks, canReadResponsibilities, employeeId, isEditMode, toast]);
+
+  const loadTab = useCallback(async (tab: EmployeeTab, force = false) => {
+    if (auth.status !== "authenticated" || !employeeId || isEditMode || (!force && loadedTabs.includes(tab))) {
+      return;
+    }
+
+    setTabLoading(true);
+
+    try {
+      if (tab === "responsibilities" && canReadResponsibilities) {
+        const response = await auth.api.request<{ data: Responsibility[] }>(`/employees/${employeeId}/responsibilities`);
+        setResponsibilities(response.data);
+      }
+
+      if (tab === "tasks" && canReadEmployeeTasks) {
+        const response = await auth.api.request<PaginatedResponse<EmployeeTask>>(`/employee-tasks?assigneeEmployeeId=${employeeId}&limit=20`);
+        setEmployeeTasks(response.data);
+      }
+
+      if ((tab === "attendance" || tab === "schedule") && canReadAttendance) {
+        const [entriesResponse, shiftsResponse] = await Promise.all([
+          auth.api.request<PaginatedResponse<TimeEntry>>(`/time-entries?employeeId=${employeeId}&limit=20`),
+          auth.api.request<PaginatedResponse<WorkShift>>(`/work-shifts?employeeId=${employeeId}&limit=20`)
+        ]);
+
+        setTimeEntries(entriesResponse.data);
+        setWorkShifts(shiftsResponse.data);
+      }
+
+      if (tab === "payroll" && canReadPayroll) {
+        const response = await auth.api.request<PaginatedResponse<PayrollAdjustment>>(`/payroll/adjustments?employeeId=${employeeId}&limit=10`);
+        setPayrollAdjustments(response.data);
+      }
+
+      if (tab === "secrets" && canReadSecrets) {
+        const response = await auth.api.request<PaginatedResponse<SecretVaultItem>>(`/secrets?ownerEmployeeId=${employeeId}&limit=20`);
+        setEmployeeSecrets(response.data);
+      }
+
+      setLoadedTabs((current) => (current.includes(tab) ? current : [...current, tab]));
+    } catch (error) {
+      toast({ title: "Не удалось загрузить вкладку", description: error instanceof Error ? error.message : undefined, variant: "error" });
+    } finally {
+      setTabLoading(false);
+    }
+  }, [
+    auth.api,
+    auth.status,
+    canReadAttendance,
+    canReadEmployeeTasks,
+    canReadPayroll,
+    canReadResponsibilities,
+    canReadSecrets,
+    employeeId,
+    isEditMode,
+    loadedTabs,
+    toast
+  ]);
 
   useEffect(() => {
     if (auth.status === "authenticated") {
       void load();
     }
   }, [auth.status, load]);
+
+  useEffect(() => {
+    if (auth.status === "authenticated" && !loading) {
+      void loadTab(activeTab);
+    }
+  }, [activeTab, auth.status, loadTab, loading]);
 
   const monthWorkedHours = useMemo(() => {
     const now = new Date();
@@ -188,6 +255,7 @@ export function EmployeeEditor({ employeeId, mode = "view" }: { employeeId?: str
   );
   const activeSchedule = employee?.schedules?.find((schedule) => schedule.isActive) ?? employee?.schedules?.[0];
   const latestPayrollLine = employee?.payrollLines?.[0];
+  const currentTabLoading = tabLoading && !loadedTabs.includes(activeTab);
 
   function updateField(key: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -368,7 +436,10 @@ export function EmployeeEditor({ employeeId, mode = "view" }: { employeeId?: str
                 />
                 <Card>
                   <CardContent className="p-4">
-                    {activeTab === "overview" ? (
+                    {currentTabLoading ? (
+                      <LoadingState label="Загрузка вкладки" />
+                    ) : null}
+                    {!currentTabLoading && activeTab === "overview" ? (
                       <EmployeeOverviewTab
                         activeSchedule={activeSchedule}
                         activeTasks={activeTasks}
@@ -378,7 +449,7 @@ export function EmployeeEditor({ employeeId, mode = "view" }: { employeeId?: str
                         shifts={workShifts}
                       />
                     ) : null}
-                    {activeTab === "schedule" ? (
+                    {!currentTabLoading && activeTab === "schedule" ? (
                       <EmployeeScheduleTab
                         canCreateSchedule={canUpdate}
                         canManageAttendance={canManageAttendance}
@@ -389,14 +460,14 @@ export function EmployeeEditor({ employeeId, mode = "view" }: { employeeId?: str
                         onScheduleFormChange={setScheduleForm}
                       />
                     ) : null}
-                    {activeTab === "responsibilities" ? (
+                    {!currentTabLoading && activeTab === "responsibilities" ? (
                       <EmployeeResponsibilitiesTab
                         canAssignResponsibility={canAssignResponsibility}
                         employeeId={employee.id}
                         responsibilities={responsibilities}
                       />
                     ) : null}
-                    {activeTab === "tasks" ? (
+                    {!currentTabLoading && activeTab === "tasks" ? (
                       <EmployeeTasksTab
                         canCreateTask={canCreateTask}
                         statusFilter={taskStatusFilter}
@@ -404,7 +475,7 @@ export function EmployeeEditor({ employeeId, mode = "view" }: { employeeId?: str
                         onStatusFilterChange={setTaskStatusFilter}
                       />
                     ) : null}
-                    {activeTab === "attendance" ? (
+                    {!currentTabLoading && activeTab === "attendance" ? (
                       <EmployeeAttendanceTab
                         canManageAttendance={canManageAttendance}
                         entries={timeEntries}
@@ -412,13 +483,13 @@ export function EmployeeEditor({ employeeId, mode = "view" }: { employeeId?: str
                         onAction={runTimeEntryAction}
                       />
                     ) : null}
-                    {activeTab === "payroll" && canReadPayroll ? (
+                    {!currentTabLoading && activeTab === "payroll" && canReadPayroll ? (
                       <EmployeePayrollTab employee={employee} adjustments={payrollAdjustments} />
                     ) : null}
-                    {activeTab === "secrets" && canReadSecrets ? (
+                    {!currentTabLoading && activeTab === "secrets" && canReadSecrets ? (
                       <EmployeeSecretsTab canRevealSecrets={canRevealSecrets} secrets={employeeSecrets} />
                     ) : null}
-                    {activeTab === "details" ? (
+                    {!currentTabLoading && activeTab === "details" ? (
                       <EmployeeDetailsTab employee={employee} />
                     ) : null}
                   </CardContent>

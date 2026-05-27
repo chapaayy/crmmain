@@ -64,7 +64,7 @@ export function ResponsibilitiesPage() {
     try {
       const [responsibilitiesResponse, employeesResponse] = await Promise.all([
         auth.api.request<PaginatedResponse<Responsibility>>(`/responsibilities?${query}`),
-        auth.hasPermission("employees.read") ? auth.api.request<PaginatedResponse<Employee>>("/employees?limit=100&isActive=true") : Promise.resolve(null)
+        canCreate && auth.hasPermission("employees.read") ? auth.api.request<PaginatedResponse<Employee>>("/employees?limit=100&isActive=true") : Promise.resolve(null)
       ]);
       setResponsibilities(responsibilitiesResponse.data);
       setMeta(responsibilitiesResponse.meta);
@@ -74,7 +74,7 @@ export function ResponsibilitiesPage() {
     } finally {
       setLoading(false);
     }
-  }, [auth, query, toast]);
+  }, [auth, canCreate, query, toast]);
 
   useEffect(() => {
     if (auth.status === "authenticated") {
