@@ -5,7 +5,7 @@ const statusLabels: Record<string, string> = {
   DRAFT: "Черновик",
   NEW: "Новый",
   MANAGER_PROCESSING: "В обработке",
-  WAITING_PAYMENT: "Ожидает оплату",
+  WAITING_PAYMENT: "Ждет оплату",
   PAID: "Оплачен",
   RESERVED: "Резерв",
   PICKING: "Сборка",
@@ -35,12 +35,15 @@ const statusLabels: Record<string, string> = {
   DAY_OFF: "Выходной",
   BONUS: "Бонус",
   PENALTY: "Штраф",
-  CORRECTION: "Корректировка"
+  CORRECTION: "Корректировка",
+  PENDING: "Ожидает",
+  FAILED: "Ошибка",
+  SENT: "Отправлен"
 };
 
-const successStatuses = new Set(["PAID", "DELIVERED", "COMPLETED", "DONE", "APPROVED", "ACTIVE", "WORKED", "CALCULATED"]);
-const warningStatuses = new Set(["WAITING_PAYMENT", "PICKING", "SUBMITTED", "OPEN", "DRAFT", "PLANNED", "LATE", "PAUSED"]);
-const destructiveStatuses = new Set(["CANCELLED", "REFUNDED", "REJECTED", "MISSED", "ARCHIVED"]);
+const successStatuses = new Set(["PAID", "DELIVERED", "COMPLETED", "DONE", "APPROVED", "ACTIVE", "WORKED", "CALCULATED", "SENT"]);
+const warningStatuses = new Set(["WAITING_PAYMENT", "PICKING", "SUBMITTED", "OPEN", "DRAFT", "PLANNED", "LATE", "PAUSED", "PENDING"]);
+const destructiveStatuses = new Set(["CANCELLED", "REFUNDED", "REJECTED", "MISSED", "ARCHIVED", "FAILED"]);
 
 export function StatusBadge({ status, className }: { status: string; className?: string }) {
   const variant: BadgeProps["variant"] = successStatuses.has(status)

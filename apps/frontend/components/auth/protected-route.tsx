@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
@@ -7,7 +8,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { ApiClientError } from "@/lib/api-client";
 
-export function ProtectedRoute({ children }: { children: React.ReactNode }) {
+export function ProtectedRoute({ children }: { children: ReactNode }) {
   const auth = useAuth();
   const { bootstrap, status } = auth;
   const pathname = usePathname();
@@ -57,8 +58,10 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
-        <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 text-center shadow-panel">
-          <AlertCircle className="mx-auto h-6 w-6 text-warning" />
+        <div className="crm-surface w-full max-w-md rounded-2xl p-6 text-center">
+          <div className="mx-auto grid h-11 w-11 place-items-center rounded-2xl border border-warning/35 bg-warning/15 text-warning">
+            <AlertCircle className="h-5 w-5" />
+          </div>
           <h1 className="mt-3 text-base font-semibold">Не удалось восстановить сессию</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {error}
@@ -80,9 +83,11 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!ready || status === "loading") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading workspace
+        <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
+          <div className="grid h-11 w-11 place-items-center rounded-2xl border border-primary/30 bg-primary/10 text-primary shadow-glow">
+            <Loader2 className="h-4 w-4 animate-spin" />
+          </div>
+          Загружаем рабочую область
         </div>
       </div>
     );

@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Boxes, X } from "lucide-react";
@@ -31,19 +32,19 @@ export function Sidebar({
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 border-r border-sidebar-border bg-sidebar lg:block">
+      <aside className="fixed inset-y-3 left-3 z-40 hidden w-[18rem] overflow-hidden rounded-2xl border border-sidebar-border/90 bg-sidebar/95 shadow-panel shadow-black/35 backdrop-blur-xl lg:block">
         {content}
       </aside>
 
       {open ? (
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
-            aria-label="Close menu"
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            aria-label="Закрыть меню"
+            className="absolute inset-0 bg-black/75 backdrop-blur-sm"
             type="button"
             onClick={onClose}
           />
-          <aside className="relative h-full w-[min(20rem,calc(100vw-2rem))] border-r border-sidebar-border bg-sidebar shadow-panel">
+          <aside className="relative m-3 h-[calc(100%-1.5rem)] w-[min(20rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-sidebar-border/90 bg-sidebar/95 shadow-panel">
             {content}
           </aside>
         </div>
@@ -66,22 +67,23 @@ export function SidebarContent({
   const activeHref = getActiveHref(pathname, items);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-sidebar-border px-4">
-        <div className="grid h-10 w-10 place-items-center rounded-md border border-primary/30 bg-primary/15 text-primary shadow-glow">
+    <div className="relative flex h-full min-h-0 flex-col">
+      <div className="pointer-events-none absolute -right-20 top-4 h-44 w-44 rounded-full bg-primary/10 blur-3xl" />
+      <div className="relative flex h-[4.5rem] shrink-0 items-center gap-3 border-b border-sidebar-border/80 px-4">
+        <div className="grid h-11 w-11 place-items-center rounded-2xl border border-primary/30 bg-primary/10 text-primary shadow-glow">
           <Boxes className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold text-foreground">CRM Polybags</div>
-          <div className="truncate text-xs text-muted-foreground">Workspace</div>
+          <div className="truncate text-sm font-semibold text-foreground">CRM Мешки</div>
+          <div className="truncate text-xs text-muted-foreground">Рабочая область</div>
         </div>
         <Button className="lg:hidden" size="icon" type="button" variant="ghost" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
       </div>
 
-      <nav className="min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-4">
-        {menuGroups.map((group) => {
+      <nav className="relative min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-4">
+        {menuGroups.map((group, index) => {
           const groupItems = items.filter((item) => item.group === group.key);
 
           if (!groupItems.length) {
@@ -89,7 +91,7 @@ export function SidebarContent({
           }
 
           return (
-            <SidebarGroup key={group.key} title={group.label}>
+            <SidebarGroup key={group.key} title={group.label} divided={index > 0}>
               {groupItems.map((item) => (
                 <SidebarItem
                   key={item.href}
@@ -106,10 +108,21 @@ export function SidebarContent({
   );
 }
 
-export function SidebarGroup({ title, children }: { title: string; children: React.ReactNode }) {
+export function SidebarGroup({
+  title,
+  children,
+  divided
+}: {
+  title: string;
+  children: ReactNode;
+  divided?: boolean;
+}) {
   return (
-    <div className="space-y-1.5">
-      <div className="px-3 text-[11px] font-semibold text-muted-foreground">{title}</div>
+    <div className={cn("space-y-1.5", divided && "border-t border-dashed border-primary/15 pt-4")}>
+      <div className="flex items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        <span className="h-3 w-0.5 rounded-full bg-primary/70" />
+        {title}
+      </div>
       <div className="space-y-1">{children}</div>
     </div>
   );
@@ -128,12 +141,23 @@ export function SidebarItem({
     <Link
       href={item.href}
       className={cn(
-        "group flex h-10 items-center gap-3 rounded-md border border-transparent px-3 text-sm font-medium text-muted-foreground transition-all hover:border-sidebar-border hover:bg-sidebar-hover hover:text-foreground",
+        "group relative flex h-10 items-center gap-3 overflow-hidden rounded-xl border border-transparent px-3 text-sm font-medium text-muted-foreground transition-all duration-200 hover:translate-x-0.5 hover:border-primary/20 hover:bg-primary/10 hover:text-foreground",
         active && "border-primary/35 bg-sidebar-active text-primary shadow-glow"
       )}
       onClick={onNavigate}
     >
-      <item.icon className={cn("h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary", active && "text-primary")} />
+      <span
+        className={cn(
+          "absolute inset-y-2 left-0 w-0.5 rounded-r-full bg-transparent transition-colors",
+          active && "bg-primary"
+        )}
+      />
+      <item.icon
+        className={cn(
+          "h-4 w-4 text-muted-foreground transition-all duration-200 group-hover:scale-105 group-hover:text-primary",
+          active && "text-primary"
+        )}
+      />
       <span className="min-w-0 truncate">{item.label}</span>
     </Link>
   );

@@ -23,7 +23,6 @@ import { useAuth } from "@/components/auth/auth-provider";
 import type { EmployeeTask, Responsibility, SecretVaultItem } from "@/components/employee-work/employee-work-types";
 import type { Employee, PayrollAdjustment, PayrollLine, TimeEntry, WorkSchedule, WorkShift } from "@/components/hr/hr-types";
 import { formatDate, formatDateTime, formatMoney, formatNumber } from "@/components/hr/hr-ui";
-import { useToast } from "@/components/toast/toast-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,7 +79,6 @@ interface MySummary {
 
 export function MyHomePage() {
   const auth = useAuth();
-  const { toast } = useToast();
   const [data, setData] = useState<MySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -109,11 +107,10 @@ export function MyHomePage() {
     } catch (requestError) {
       const message = getHomeErrorMessage(requestError);
       setError(message);
-      toast({ title: "Не удалось загрузить рабочий стол", description: message, variant: "error" });
     } finally {
       setLoading(false);
     }
-  }, [auth.api, auth.status, toast]);
+  }, [auth.api, auth.status]);
 
   useEffect(() => {
     if (auth.status === "authenticated") {
@@ -128,7 +125,7 @@ export function MyHomePage() {
 
   if (auth.status === "loading" || loading) {
     return (
-      <main className="space-y-5 p-4 sm:p-6">
+      <main className="crm-page">
         <PageHeader title="Мой рабочий стол" description="Персональная сводка сотрудника и быстрые рабочие действия." />
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, index) => (
@@ -142,7 +139,7 @@ export function MyHomePage() {
 
   if (error || !data) {
     return (
-      <main className="p-4 sm:p-6">
+      <main className="crm-page">
         <ErrorState label="Не удалось открыть главную" description={error ?? undefined} onRetry={() => void load()} />
       </main>
     );
@@ -152,7 +149,7 @@ export function MyHomePage() {
   const initials = getInitials(employeeName || data.user.email);
 
   return (
-    <main className="space-y-5 p-4 sm:p-6">
+    <main className="crm-page">
       <PageHeader
         title="Мой рабочий стол"
         description="Ваши задачи, ответственности, график, рабочее время и важные уведомления."
@@ -230,11 +227,11 @@ function MyHomeHeader({
   canAssignResponsibility: boolean;
 }) {
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden bg-gradient-to-br from-card/95 to-surface/90">
       <CardContent className="p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-center gap-4">
-            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-lg border border-primary/30 bg-primary/15 text-xl font-semibold text-primary shadow-glow">
+            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl border border-primary/30 bg-primary/15 text-xl font-semibold text-primary shadow-glow">
               {initials}
             </div>
             <div className="min-w-0">

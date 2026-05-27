@@ -94,7 +94,7 @@ export const menuItems: MenuItem[] = [
   { label: "Роли", href: "/admin/roles", permission: "roles.read", icon: ShieldCheck, adminOnly: true, group: "admin" },
   { label: "Настройки", href: "/settings", icon: Settings, group: "admin" },
   { label: "Настройки компании", href: "/admin/settings", permission: "settings.manage", icon: Settings, adminOnly: true, group: "admin" },
-  { label: "Audit Logs", href: "/admin/audit-logs", permission: "audit_logs.read", icon: ScrollText, adminOnly: true, group: "admin" },
+  { label: "Журнал аудита", href: "/admin/audit-logs", permission: "audit_logs.read", icon: ScrollText, adminOnly: true, group: "admin" },
   { label: "Доступы / Vault", href: "/secrets", permission: "secrets.read_metadata", icon: KeyRound, group: "admin" }
 ];
 

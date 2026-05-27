@@ -43,6 +43,18 @@ const config: Config = {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))"
         },
+        info: {
+          DEFAULT: "hsl(var(--info))",
+          foreground: "hsl(var(--info-foreground))"
+        },
+        violet: {
+          DEFAULT: "hsl(var(--violet))",
+          foreground: "hsl(var(--violet-foreground))"
+        },
+        surface: {
+          DEFAULT: "hsl(var(--surface))",
+          elevated: "hsl(var(--surface-elevated))"
+        },
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))"
@@ -55,13 +67,28 @@ const config: Config = {
         }
       },
       borderRadius: {
+        xl: "18px",
         lg: "16px",
         md: "12px",
         sm: "8px"
       },
       boxShadow: {
-        panel: "0 18px 60px rgba(0, 0, 0, 0.28)",
-        glow: "0 0 0 1px hsl(var(--primary) / 0.25), 0 0 28px hsl(var(--primary) / 0.12)"
+        panel: "0 18px 70px rgba(0, 0, 0, 0.36)",
+        glow: "0 0 0 1px hsl(var(--primary) / 0.25), 0 0 28px hsl(var(--primary) / 0.14)",
+        "inner-panel": "inset 0 1px 0 rgba(255, 255, 255, 0.04)"
+      },
+      keyframes: {
+        shimmer: {
+          "100%": { transform: "translateX(100%)" }
+        },
+        "fade-up": {
+          "0%": { opacity: "0", transform: "translateY(8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" }
+        }
+      },
+      animation: {
+        shimmer: "shimmer 1.55s ease-in-out infinite",
+        "fade-up": "fade-up 180ms ease-out both"
       }
     }
   },
