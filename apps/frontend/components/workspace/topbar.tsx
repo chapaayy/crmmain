@@ -29,17 +29,16 @@ export function Topbar({
   const title = useMemo(() => getCurrentTitle(pathname), [pathname]);
   const visibleItems = getVisibleMenuItems(auth);
   const crumbs = title === "Главная" ? ["Обзор", title] : ["CRM Мешки", title];
-  const { hidden, compact } = useHeaderHeadroom();
+  const hidden = useHeaderHeadroom();
 
   return (
     <header
       className={cn(
-        "sticky top-0 z-30 border-b border-border/70 bg-background/70 backdrop-blur-xl transition-[transform,height,background-color,border-color] duration-500 crm-panel-motion will-change-transform",
-        hidden && "-translate-y-[calc(100%+1px)]",
-        compact && "bg-background/80"
+        "sticky top-0 z-30 border-b border-border/70 bg-background/70 backdrop-blur-xl transition-transform duration-500 crm-panel-motion will-change-transform",
+        hidden && "-translate-y-[calc(100%+1px)]"
       )}
     >
-      <div className={cn("flex items-center gap-3 px-4 transition-[height,padding] duration-500 crm-panel-motion sm:px-5 xl:px-6", compact ? "h-14" : "h-16")}>
+      <div className="flex h-16 items-center gap-3 px-4 sm:px-5 xl:px-6">
         <Button aria-label="Открыть меню" className="lg:hidden" size="icon" type="button" variant="outline" onClick={onOpenSidebar}>
           <Menu className="h-4 w-4" />
         </Button>
@@ -63,7 +62,7 @@ export function Topbar({
               </span>
             ))}
           </div>
-          <h1 className={cn("mt-0.5 truncate font-semibold tracking-normal text-foreground transition-all duration-500 crm-panel-motion", compact ? "text-base" : "text-lg")}>{title}</h1>
+          <h1 className="mt-0.5 truncate text-lg font-semibold tracking-normal text-foreground">{title}</h1>
         </div>
 
         <div className="relative hidden w-full max-w-sm xl:block">
@@ -105,7 +104,6 @@ export function Topbar({
 
 function useHeaderHeadroom() {
   const [hidden, setHidden] = useState(false);
-  const [compact, setCompact] = useState(false);
 
   useEffect(() => {
     let lastY = window.scrollY;
@@ -114,8 +112,6 @@ function useHeaderHeadroom() {
     const update = () => {
       const currentY = window.scrollY;
       const delta = currentY - lastY;
-
-      setCompact(currentY > 28);
 
       if (currentY < 48) {
         setHidden(false);
@@ -143,7 +139,7 @@ function useHeaderHeadroom() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  return { hidden, compact };
+  return hidden;
 }
 
 function MobileQuickNav({ items, pathname }: { items: ReturnType<typeof getVisibleMenuItems>; pathname: string }) {
