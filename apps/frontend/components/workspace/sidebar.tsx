@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Boxes, PanelLeftClose, X } from "lucide-react";
+import { Boxes, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { menuGroups, menuItems } from "@/lib/navigation";
@@ -13,13 +13,11 @@ import { cn } from "@/lib/utils";
 export function Sidebar({
   open,
   desktopOpen = true,
-  onClose,
-  onDesktopClose
+  onClose
 }: {
   open?: boolean;
   desktopOpen?: boolean;
   onClose?: () => void;
-  onDesktopClose?: () => void;
 }) {
   const pathname = usePathname();
   const auth = useAuth();
@@ -31,7 +29,6 @@ export function Sidebar({
       pathname={pathname}
       onNavigate={onClose}
       onClose={onClose}
-      onDesktopClose={onDesktopClose}
     />
   );
 
@@ -67,14 +64,12 @@ export function SidebarContent({
   items,
   pathname,
   onNavigate,
-  onClose,
-  onDesktopClose
+  onClose
 }: {
   items: MenuItem[];
   pathname: string;
   onNavigate?: () => void;
   onClose?: () => void;
-  onDesktopClose?: () => void;
 }) {
   const activeHref = getActiveHref(pathname, items);
 
@@ -89,9 +84,6 @@ export function SidebarContent({
           <div className="truncate text-sm font-semibold text-foreground">CRM Мешки</div>
           <div className="truncate text-xs text-muted-foreground">Рабочая область</div>
         </div>
-        <Button className="hidden lg:inline-flex" size="icon" type="button" variant="ghost" onClick={onDesktopClose}>
-          <PanelLeftClose className="h-4 w-4" />
-        </Button>
         <Button className="lg:hidden" size="icon" type="button" variant="ghost" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
@@ -156,14 +148,14 @@ export function SidebarItem({
     <Link
       href={item.href}
       className={cn(
-        "group relative flex h-10 items-center gap-3 overflow-hidden rounded-xl border border-transparent px-3 text-sm font-medium text-muted-foreground transition-all duration-300 crm-panel-motion hover:translate-x-0.5 hover:border-primary/20 hover:bg-primary/10 hover:text-foreground",
-        active && "border-primary/35 bg-sidebar-active text-primary shadow-glow"
+        "group relative flex h-10 items-center gap-3 overflow-hidden rounded-md border border-transparent px-3 text-sm font-medium text-muted-foreground transition-all duration-300 crm-panel-motion hover:translate-x-0.5 hover:border-primary/20 hover:bg-primary/8 hover:text-foreground",
+        active && "border-primary/35 bg-sidebar-active/90 text-primary shadow-[0_0_0_1px_hsl(var(--primary)/0.12),0_10px_28px_hsl(var(--primary)/0.08)]"
       )}
       onClick={onNavigate}
     >
       <span
         className={cn(
-          "absolute inset-y-2 left-0 w-0.5 rounded-r-full bg-transparent transition-colors duration-300 crm-panel-motion",
+          "absolute inset-y-1 left-0 w-0.5 bg-transparent transition-colors duration-300 crm-panel-motion",
           active && "bg-primary"
         )}
       />

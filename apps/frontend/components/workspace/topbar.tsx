@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Languages, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, ShieldCheck, UserCircle } from "lucide-react";
+import { ChevronDown, Languages, LogOut, Menu, Search, ShieldCheck, UserCircle, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Badge } from "@/components/ui/badge";
@@ -50,7 +50,7 @@ export function Topbar({
           variant="outline"
           onClick={onToggleSidebar}
         >
-          {sidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+          {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
         </Button>
 
         <div className="min-w-0 flex-1">

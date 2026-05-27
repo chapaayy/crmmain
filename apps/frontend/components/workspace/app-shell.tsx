@@ -28,18 +28,17 @@ export function AppShell({ children }: { children: ReactNode }) {
     });
   }
 
-  function closeDesktopSidebar() {
-    setDesktopSidebarOpen(false);
-    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, "false");
-  }
-
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Sidebar
         desktopOpen={desktopSidebarOpen}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        onDesktopClose={closeDesktopSidebar}
+      />
+      <Topbar
+        sidebarOpen={desktopSidebarOpen}
+        onOpenSidebar={() => setSidebarOpen(true)}
+        onToggleSidebar={toggleDesktopSidebar}
       />
       <div
         className={cn(
@@ -47,11 +46,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           desktopSidebarOpen ? "lg:pl-[19.5rem]" : "lg:pl-0"
         )}
       >
-        <Topbar
-          sidebarOpen={desktopSidebarOpen}
-          onOpenSidebar={() => setSidebarOpen(true)}
-          onToggleSidebar={toggleDesktopSidebar}
-        />
         <div className="min-h-[calc(100vh-4rem)]">{children}</div>
       </div>
     </div>
