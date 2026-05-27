@@ -53,6 +53,12 @@ class EnvironmentVariables {
   @IsOptional()
   @Transform(({ value }) => (value === undefined || value === "" ? undefined : Number(value)))
   @IsInt()
+  @Min(0)
+  API_GET_CACHE_TTL_MS?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === undefined || value === "" ? undefined : Number(value)))
+  @IsInt()
   @Min(1)
   PORT?: number;
 

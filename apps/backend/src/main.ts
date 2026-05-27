@@ -6,6 +6,7 @@ import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { ResponseTimeInterceptor } from "./common/interceptors/response-time.interceptor";
+import { ShortResponseCacheInterceptor } from "./common/interceptors/short-response-cache.interceptor";
 import { setupSwagger } from "./config/swagger.config";
 import { PrismaService } from "./prisma/prisma.service";
 
@@ -42,7 +43,7 @@ async function bootstrap() {
     })
   );
   app.useGlobalFilters(new HttpExceptionFilter());
-  app.useGlobalInterceptors(new ResponseTimeInterceptor());
+  app.useGlobalInterceptors(new ResponseTimeInterceptor(), new ShortResponseCacheInterceptor(config));
 
   setupSwagger(app);
   prisma.enableShutdownHooks(app);

@@ -33,5 +33,6 @@ export default registerAs("app", () => ({
   authCookieDomain: process.env.AUTH_COOKIE_DOMAIN || undefined,
   authCookiePath: process.env.AUTH_COOKIE_PATH || "/",
   authCookieSecure: parseOptionalBoolean(process.env.AUTH_COOKIE_SECURE),
-  authCookieSameSite: parseSameSite(process.env.AUTH_COOKIE_SAME_SITE)
+  authCookieSameSite: parseSameSite(process.env.AUTH_COOKIE_SAME_SITE),
+  getCacheTtlMs: Number(process.env.API_GET_CACHE_TTL_MS ?? 3000)
 }));
