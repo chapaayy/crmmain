@@ -30,6 +30,8 @@ export interface ApiClientOptions {
 }
 
 export class ApiClient {
+  static readonly responseCache = new Map<string, { expiresAt: number; value: unknown }>();
+  static readonly inFlightGetRequests = new Map<string, Promise<unknown>>();
   private readonly baseUrl: string;
   private readonly getAccessToken?: () => string | null;
   private readonly refreshAccessToken?: () => Promise<string | null>;
@@ -56,34 +58,83 @@ export class ApiClient {
     return this.fetchJson<T>(path, init);
   }
 
+  static clearResponseCache() {
+    ApiClient.responseCache.clear();
+    ApiClient.inFlightGetRequests.clear();
+  }
+
   private async fetchWithAuth<T>(path: string, init: RequestInit, canRefresh: boolean): Promise<T> {
     const accessToken = this.getAccessToken?.();
     const headers = new Headers(init.headers);
+    const method = normalizeMethod(init.method);
+    const cacheKey = this.getClientCacheKey(path, init, accessToken);
+
+    if (isMutationMethod(method)) {
+      ApiClient.clearResponseCache();
+    }
+
+    if (cacheKey) {
+      const cached = ApiClient.responseCache.get(cacheKey);
+
+      if (cached && cached.expiresAt > Date.now()) {
+        debugApi("client cache hit", path);
+        return cached.value as T;
+      }
+
+      if (cached) {
+        ApiClient.responseCache.delete(cacheKey);
+      }
+
+      const inFlight = ApiClient.inFlightGetRequests.get(cacheKey);
+
+      if (inFlight) {
+        debugApi("client request joins in-flight GET", path);
+        return inFlight as Promise<T>;
+      }
+    }
 
     if (accessToken) {
       headers.set("Authorization", `Bearer ${accessToken}`);
     }
 
-    try {
-      return await this.fetchJson<T>(path, { ...init, headers });
-    } catch (error) {
-      if (
-        canRefresh &&
-        error instanceof ApiClientError &&
-        error.status === 401 &&
-        this.refreshAccessToken
-      ) {
-        debugApi("request waits for refresh", path);
-        const refreshedToken = await this.refreshAccessToken();
+    const requestPromise = (async () => {
+      try {
+        const response = await this.fetchJson<T>(path, { ...init, headers });
 
-        if (refreshedToken) {
-          debugApi("queued request retry after refresh", path);
-          return this.fetchWithAuth<T>(path, init, false);
+        if (cacheKey) {
+          putClientCache(cacheKey, response);
+        }
+
+        return response;
+      } catch (error) {
+        if (
+          canRefresh &&
+          error instanceof ApiClientError &&
+          error.status === 401 &&
+          this.refreshAccessToken
+        ) {
+          debugApi("request waits for refresh", path);
+          const refreshedToken = await this.refreshAccessToken();
+
+          if (refreshedToken) {
+            debugApi("queued request retry after refresh", path);
+            return this.fetchWithAuth<T>(path, init, false);
+          }
+        }
+
+        throw error;
+      } finally {
+        if (cacheKey) {
+          ApiClient.inFlightGetRequests.delete(cacheKey);
         }
       }
+    })();
 
-      throw error;
+    if (cacheKey) {
+      ApiClient.inFlightGetRequests.set(cacheKey, requestPromise);
     }
+
+    return requestPromise;
   }
 
   private async fetchTextWithAuth(path: string, init: RequestInit, canRefresh: boolean): Promise<string> {
@@ -144,6 +195,24 @@ export class ApiClient {
 
       throw error;
     }
+  }
+
+  private getClientCacheKey(path: string, init: RequestInit, accessToken: string | null | undefined) {
+    const method = normalizeMethod(init.method);
+    const cacheControl = new Headers(init.headers).get("Cache-Control")?.toLowerCase();
+
+    if (
+      method !== "GET" ||
+      !accessToken ||
+      init.cache === "no-store" ||
+      init.cache === "reload" ||
+      cacheControl?.includes("no-cache") ||
+      !isClientCacheablePath(path)
+    ) {
+      return null;
+    }
+
+    return `${this.baseUrl}:${accessToken}:${path}`;
   }
 
   private async fetchJson<T>(path: string, init: RequestInit = {}) {
@@ -214,6 +283,8 @@ export class ApiClient {
 
 const TRANSIENT_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
 const TRANSIENT_RETRY_DELAYS_MS = [150, 350, 700, 1200];
+const CLIENT_GET_CACHE_TTL_MS = 8_000;
+const CLIENT_GET_CACHE_MAX_ENTRIES = 250;
 
 function parseBody<T>(text: string): T | undefined {
   try {
@@ -304,9 +375,52 @@ function compactResponseText(text: string) {
 }
 
 function isRetryableMethod(method?: string) {
-  const normalizedMethod = (method ?? "GET").toUpperCase();
+  const normalizedMethod = normalizeMethod(method);
 
   return normalizedMethod === "GET" || normalizedMethod === "HEAD";
+}
+
+function normalizeMethod(method?: string) {
+  return (method ?? "GET").toUpperCase();
+}
+
+function isMutationMethod(method: string) {
+  return !["GET", "HEAD", "OPTIONS"].includes(method);
+}
+
+function isClientCacheablePath(path: string) {
+  const normalized = path.toLowerCase();
+
+  if (
+    normalized.startsWith("/auth/") ||
+    normalized.startsWith("/notifications") ||
+    normalized.startsWith("/realtime/") ||
+    normalized.includes("/download") ||
+    normalized.includes("/export") ||
+    normalized.includes("/reveal") ||
+    normalized.includes("/access-logs")
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function putClientCache(key: string, value: unknown) {
+  const cache = ApiClient.responseCache;
+
+  if (cache.size >= CLIENT_GET_CACHE_MAX_ENTRIES) {
+    const oldestKey = cache.keys().next().value as string | undefined;
+
+    if (oldestKey) {
+      cache.delete(oldestKey);
+    }
+  }
+
+  cache.set(key, {
+    expiresAt: Date.now() + CLIENT_GET_CACHE_TTL_MS,
+    value
+  });
 }
 
 function sleep(ms: number) {

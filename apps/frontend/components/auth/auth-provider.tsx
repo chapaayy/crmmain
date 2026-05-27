@@ -46,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const clearSession = useCallback((reason = "session_cleared") => {
     debugAuth(`logout reason: ${reason}`);
+    ApiClient.clearResponseCache();
     accessTokenRef.current = null;
     setUser(null);
     setStatus("unauthenticated");
