@@ -675,7 +675,7 @@ function getInitials(value: string) {
 }
 
 async function loadSummaryWithRetry(load: () => Promise<MySummary>) {
-  const delays = [0, 350, 900, 1500];
+  const delays = [0, 200, 500];
   let lastError: unknown;
 
   for (const delay of delays) {

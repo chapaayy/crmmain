@@ -92,7 +92,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 async function retryBootstrap(bootstrap: () => Promise<boolean>) {
-  const delays = [0, 400, 900, 1500];
+  const delays = [0, 200, 500];
   let lastError: unknown;
 
   for (const delay of delays) {

@@ -36,7 +36,7 @@ export class NotificationsService {
   ) {}
 
   async list(userId: string, query: NotificationQueryDto) {
-    await this.createDueSoonNotifications(userId);
+    void this.createDueSoonNotifications(userId).catch(() => undefined);
 
     const where: Prisma.NotificationWhereInput = {
       userId,

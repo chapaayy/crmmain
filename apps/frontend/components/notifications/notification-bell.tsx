@@ -29,14 +29,16 @@ export function NotificationBell() {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [realtimeReady, setRealtimeReady] = useState(false);
   const apiBaseUrl = getApiBaseUrl();
   const sseUrl = useMemo(() => {
-    if (!apiBaseUrl || !auth.accessToken) {
+    if (!realtimeReady || !apiBaseUrl || !auth.accessToken) {
       return "";
     }
 
     return `${apiBaseUrl.replace(/\/$/, "")}/realtime/events?token=${encodeURIComponent(auth.accessToken)}`;
-  }, [apiBaseUrl, auth.accessToken]);
+  }, [apiBaseUrl, auth.accessToken, realtimeReady]);
 
   const load = useCallback(async () => {
     if (auth.status !== "authenticated") {
@@ -49,6 +51,7 @@ export function NotificationBell() {
       const response = await auth.api.request<NotificationsResponse>("/notifications?limit=10");
       setItems(response.data);
       setUnreadCount(response.unreadCount);
+      setLoaded(true);
     } finally {
       setLoading(false);
     }
@@ -56,14 +59,31 @@ export function NotificationBell() {
 
   useEffect(() => {
     if (auth.status !== "authenticated") {
+      setItems([]);
+      setUnreadCount(0);
+      setLoaded(false);
       return;
     }
 
-    void load();
+    const initialTimer = window.setTimeout(() => void load(), 1800);
     const timer = window.setInterval(() => void load(), 30_000);
 
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(timer);
+    };
   }, [auth.status, load]);
+
+  useEffect(() => {
+    if (auth.status !== "authenticated") {
+      setRealtimeReady(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => setRealtimeReady(true), 2500);
+
+    return () => window.clearTimeout(timer);
+  }, [auth.status]);
 
   useEffect(() => {
     if (!sseUrl) {
@@ -110,7 +130,19 @@ export function NotificationBell() {
 
   return (
     <div className="relative">
-      <Button aria-label="Notifications" size="icon" type="button" variant="outline" onClick={() => setOpen((value) => !value)}>
+      <Button
+        aria-label="Notifications"
+        size="icon"
+        type="button"
+        variant="outline"
+        onClick={() => {
+          setOpen((value) => !value);
+
+          if (!loaded && !loading) {
+            void load();
+          }
+        }}
+      >
         <Bell className="h-4 w-4" />
         {unreadCount > 0 ? (
           <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
