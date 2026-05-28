@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bell, CheckCheck, Loader2 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getApiBaseUrl } from "@/lib/api-url";
+import { useDismissibleLayer } from "@/lib/use-dismissible-layer";
 import { cn } from "@/lib/utils";
 
 interface NotificationItem {
@@ -31,6 +32,8 @@ export function NotificationBell() {
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [realtimeReady, setRealtimeReady] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const apiBaseUrl = getApiBaseUrl();
   const sseUrl = useMemo(() => {
     if (!realtimeReady || !apiBaseUrl || !auth.accessToken) {
@@ -57,11 +60,20 @@ export function NotificationBell() {
     }
   }, [auth.api, auth.status]);
 
+  const close = useCallback(() => setOpen(false), []);
+
+  useDismissibleLayer({
+    open,
+    onDismiss: close,
+    refs: [triggerRef, panelRef]
+  });
+
   useEffect(() => {
     if (auth.status !== "authenticated") {
       setItems([]);
       setUnreadCount(0);
       setLoaded(false);
+      setOpen(false);
       return;
     }
 
@@ -131,7 +143,10 @@ export function NotificationBell() {
   return (
     <div className="relative">
       <Button
+        ref={triggerRef}
         aria-label="Notifications"
+        aria-expanded={open}
+        aria-haspopup="menu"
         size="icon"
         type="button"
         variant="outline"
@@ -151,7 +166,7 @@ export function NotificationBell() {
         ) : null}
       </Button>
       {open ? (
-        <div className="absolute right-0 top-12 z-50 w-[min(360px,calc(100vw-2rem))] rounded-2xl border border-border/80 bg-popover/95 shadow-panel backdrop-blur-xl">
+        <div ref={panelRef} className="absolute right-0 top-12 z-50 w-[min(360px,calc(100vw-2rem))] rounded-2xl border border-border/80 bg-popover/95 shadow-panel backdrop-blur-xl">
           <div className="flex items-center justify-between gap-3 border-b border-border/70 px-3 py-2">
             <div className="text-sm font-medium">Уведомления</div>
             <Button disabled={unreadCount === 0} size="sm" type="button" variant="ghost" onClick={() => void markAllRead()}>
