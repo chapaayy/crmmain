@@ -1,21 +1,14 @@
 import { Injectable } from "@nestjs/common";
-import { DocumentType, LeadStatus, OrderStatus, PaymentStatus, PayrollRunStatus, Prisma, RoleCode, StockMovementType, TaskStatus, TimeEntryStatus } from "@prisma/client";
+import { PayrollRunStatus, Prisma, RoleCode, TaskStatus, TimeEntryStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AnalyticsQueryDto } from "./dto/analytics-query.dto";
-
-const managerSelect = {
-  id: true,
-  email: true,
-  name: true
-} satisfies Prisma.UserSelect;
 
 const productSelect = {
   id: true,
   sku: true,
   name: true,
   categoryId: true,
-  minOrderQty: true,
-  purchasePrice: true
+  minOrderQty: true
 } satisfies Prisma.ProductSelect;
 
 @Injectable()
@@ -24,12 +17,10 @@ export class AnalyticsService {
 
   async dashboard(query: AnalyticsQueryDto, actorId: string) {
     const access = await this.getAnalyticsAccess(actorId);
-    const [orders, sales, leads, products, managers, warehouse, payroll] = await Promise.all([
-      this.orders(query),
-      this.buildSales(query, access.finance),
-      this.leads(query),
-      this.buildProducts(query, access.finance),
-      this.buildManagers(query, access.finance),
+    const [employees, tasks, products, warehouse, payroll] = await Promise.all([
+      this.employees(query),
+      this.tasks(query),
+      this.products(query),
       this.warehouse(query),
       this.payroll(query, access.payroll)
     ]);
@@ -37,67 +28,180 @@ export class AnalyticsService {
     return {
       generatedAt: new Date().toISOString(),
       filters: this.normalizeFilters(query),
-      financeVisible: access.finance,
-      orders,
-      sales,
-      leads,
+      employees,
+      tasks,
       products,
-      managers,
       warehouse,
       payroll
     };
   }
 
-  async orders(query: AnalyticsQueryDto) {
-    const now = new Date();
-    const todayStart = startOfDay(now);
-    const weekStart = startOfWeek(now);
-    const monthStart = startOfMonth(now);
-    const where = this.buildOrderWhere(query);
-    const [total, today, week, month, byStatusRaw, overdueTasks, shipmentsToday] = await Promise.all([
-      this.prisma.order.count({ where }),
-      this.prisma.order.count({ where: this.buildOrderWindowWhere(query, todayStart) }),
-      this.prisma.order.count({ where: this.buildOrderWindowWhere(query, weekStart) }),
-      this.prisma.order.count({ where: this.buildOrderWindowWhere(query, monthStart) }),
-      this.prisma.order.groupBy({
-        by: ["status"],
-        where,
-        _count: { _all: true }
+  async employees(query: AnalyticsQueryDto) {
+    const employeeWhere: Prisma.EmployeeProfileWhereInput = {
+      deletedAt: null
+    };
+    const userWhere: Prisma.UserWhereInput = {
+      deletedAt: null
+    };
+
+    if (query.managerId) {
+      employeeWhere.userId = query.managerId;
+      userWhere.id = query.managerId;
+    }
+
+    const [total, active, attendanceAggregate, unreadNotifications] = await Promise.all([
+      this.prisma.employeeProfile.count({ where: employeeWhere }),
+      this.prisma.employeeProfile.count({ where: { ...employeeWhere, isActive: true } }),
+      this.prisma.timeEntry.aggregate({
+        where: {
+          deletedAt: null,
+          status: TimeEntryStatus.APPROVED,
+          ...(this.dateFilter(query) ? { date: this.dateFilter(query) } : {})
+        },
+        _sum: { totalMinutes: true }
       }),
-      this.countOverdueTasks(query),
-      this.countShipmentsToday(query)
+      this.prisma.notification.count({
+        where: {
+          user: userWhere,
+          readAt: null,
+          deletedAt: null
+        }
+      })
     ]);
-    const byStatus = Object.values(OrderStatus).map((status) => ({
-      status,
-      count: byStatusRaw.find((item) => item.status === status)?._count._all ?? 0
-    }));
 
     return {
       total,
-      today,
-      week,
-      month,
-      byStatus,
-      overdueTasks,
-      shipmentsToday
+      active,
+      inactive: Math.max(0, total - active),
+      workedHours: roundQuantity(decimalToNumber(attendanceAggregate._sum.totalMinutes) / 60),
+      unreadNotifications
     };
   }
 
-  async sales(query: AnalyticsQueryDto, actorId: string) {
-    return this.buildSales(query, await this.canViewFinance(actorId));
+  async tasks(query: AnalyticsQueryDto) {
+    const where: Prisma.TaskWhereInput = {
+      deletedAt: null,
+      ...(query.managerId ? { assignedToId: query.managerId } : {})
+    };
+    const [total, overdue, byStatusRaw] = await Promise.all([
+      this.prisma.task.count({ where }),
+      this.prisma.task.count({
+        where: {
+          ...where,
+          dueAt: { lt: new Date() },
+          status: { notIn: [TaskStatus.DONE, TaskStatus.CANCELLED] }
+        }
+      }),
+      this.prisma.task.groupBy({
+        by: ["status"],
+        where,
+        _count: { _all: true }
+      })
+    ]);
+
+    return {
+      total,
+      overdue,
+      byStatus: Object.values(TaskStatus).map((status) => ({
+        status,
+        count: byStatusRaw.find((item) => item.status === status)?._count._all ?? 0
+      }))
+    };
   }
 
-  async products(query: AnalyticsQueryDto, actorId: string) {
-    return this.buildProducts(query, await this.canViewFinance(actorId));
-  }
+  async products(query: AnalyticsQueryDto) {
+    const where: Prisma.ProductWhereInput = {
+      deletedAt: null,
+      ...(query.categoryId ? { categoryId: query.categoryId } : {})
+    };
 
-  async managers(query: AnalyticsQueryDto, actorId: string) {
-    return this.buildManagers(query, await this.canViewFinance(actorId));
+    const [total, active, categories, lowStockCandidates] = await Promise.all([
+      this.prisma.product.count({ where }),
+      this.prisma.product.count({ where: { ...where, isActive: true } }),
+      this.prisma.productCategory.count({ where: { deletedAt: null } }),
+      this.prisma.stockItem.findMany({
+        where: {
+          deletedAt: null,
+          ...(query.categoryId
+            ? {
+                product: {
+                  categoryId: query.categoryId
+                }
+              }
+            : {})
+        },
+        select: {
+          id: true,
+          quantity: true,
+          reservedQuantity: true,
+          unit: true,
+          warehouse: {
+            select: {
+              id: true,
+              code: true,
+              name: true
+            }
+          },
+          product: {
+            select: productSelect
+          },
+          variant: {
+            select: {
+              id: true,
+              sku: true,
+              name: true
+            }
+          }
+        },
+        orderBy: [{ quantity: "asc" }, { updatedAt: "desc" }],
+        take: 200
+      })
+    ]);
+
+    const lowStock = lowStockCandidates
+      .map((item) => {
+        const quantity = decimalToNumber(item.quantity);
+        const reserved = decimalToNumber(item.reservedQuantity);
+        const available = roundQuantity(quantity - reserved);
+
+        return {
+          id: item.id,
+          warehouse: item.warehouse,
+          product: item.product,
+          variant: item.variant,
+          quantity,
+          reserved,
+          available,
+          unit: item.unit,
+          threshold: item.product.minOrderQty
+        };
+      })
+      .filter((item) => item.available <= item.threshold)
+      .sort((a, b) => a.available - b.available)
+      .slice(0, 10);
+
+    return {
+      total,
+      active,
+      inactive: Math.max(0, total - active),
+      categories,
+      lowStock
+    };
   }
 
   async warehouse(query: AnalyticsQueryDto) {
-    const stockWhere = this.buildStockWhere(query);
-    const [warehousesTotal, warehousesActive, stockAggregate, lowStockCandidates, shipmentsToday] = await Promise.all([
+    const stockWhere: Prisma.StockItemWhereInput = {
+      deletedAt: null,
+      ...(query.categoryId
+        ? {
+            product: {
+              categoryId: query.categoryId
+            }
+          }
+        : {})
+    };
+
+    const [warehousesTotal, warehousesActive, stockAggregate, lowStockCandidates, movementsToday] = await Promise.all([
       this.prisma.warehouse.count({ where: { deletedAt: null } }),
       this.prisma.warehouse.count({ where: { deletedAt: null, isActive: true } }),
       this.prisma.stockItem.aggregate({
@@ -136,25 +240,42 @@ export class AnalyticsService {
         orderBy: [{ quantity: "asc" }, { updatedAt: "desc" }],
         take: 200
       }),
-      this.countShipmentsToday(query)
+      this.prisma.stockMovement.count({
+        where: {
+          deletedAt: null,
+          createdAt: {
+            gte: startOfDay(new Date()),
+            lte: endOfDay(new Date())
+          },
+          ...(query.categoryId
+            ? {
+                product: {
+                  categoryId: query.categoryId
+                }
+              }
+            : {})
+        }
+      })
     ]);
-    const lowStock = lowStockCandidates.map((item) => {
-      const quantity = decimalToNumber(item.quantity);
-      const reserved = decimalToNumber(item.reservedQuantity);
-      const available = roundQuantity(quantity - reserved);
 
-      return {
-        id: item.id,
-        warehouse: item.warehouse,
-        product: item.product,
-        variant: item.variant,
-        quantity,
-        reserved,
-        available,
-        unit: item.unit,
-        threshold: item.product.minOrderQty
-      };
-    })
+    const lowStock = lowStockCandidates
+      .map((item) => {
+        const quantity = decimalToNumber(item.quantity);
+        const reserved = decimalToNumber(item.reservedQuantity);
+        const available = roundQuantity(quantity - reserved);
+
+        return {
+          id: item.id,
+          warehouse: item.warehouse,
+          product: item.product,
+          variant: item.variant,
+          quantity,
+          reserved,
+          available,
+          unit: item.unit,
+          threshold: item.product.minOrderQty
+        };
+      })
       .filter((item) => item.available <= item.threshold)
       .sort((a, b) => a.available - b.available)
       .slice(0, 10);
@@ -169,7 +290,7 @@ export class AnalyticsService {
       reserved: roundQuantity(reserved),
       available: roundQuantity(quantity - reserved),
       lowStock,
-      shipmentsToday
+      movementsToday
     };
   }
 
@@ -181,7 +302,6 @@ export class AnalyticsService {
         accrued: null,
         bonuses: null,
         penalties: null,
-        commissions: null,
         net: null,
         paid: null,
         unpaid: null,
@@ -208,7 +328,6 @@ export class AnalyticsService {
           totalGross: true,
           totalBonuses: true,
           totalPenalties: true,
-          totalCommissions: true,
           totalNet: true
         }
       }),
@@ -244,7 +363,6 @@ export class AnalyticsService {
       accrued: roundMoney(decimalToNumber(runTotals._sum.totalGross)),
       bonuses: roundMoney(decimalToNumber(runTotals._sum.totalBonuses)),
       penalties: roundMoney(decimalToNumber(runTotals._sum.totalPenalties)),
-      commissions: roundMoney(decimalToNumber(runTotals._sum.totalCommissions)),
       net,
       paid,
       unpaid: roundMoney(net - paid),
@@ -252,393 +370,6 @@ export class AnalyticsService {
       overtimeHours: roundQuantity(decimalToNumber(lineTotals._sum.overtimeHours)),
       unapprovedHours: roundQuantity(decimalToNumber(unapprovedEntries._sum.totalMinutes) / 60)
     };
-  }
-
-  private async leads(query: AnalyticsQueryDto) {
-    const where = this.buildLeadWhere(query);
-    const [total, newLeads, converted, ordersFromLeads] = await Promise.all([
-      this.prisma.lead.count({ where }),
-      this.prisma.lead.count({
-        where: {
-          ...where,
-          status: LeadStatus.NEW
-        }
-      }),
-      this.prisma.lead.count({
-        where: {
-          ...where,
-          OR: [{ convertedAt: { not: null } }, { customerId: { not: null } }]
-        }
-      }),
-      this.prisma.order.count({
-        where: {
-          ...this.buildOrderWhere(query),
-          leadId: {
-            not: null
-          }
-        }
-      })
-    ]);
-
-    return {
-      total,
-      new: newLeads,
-      converted,
-      ordersFromLeads,
-      conversionRate: total > 0 ? roundPercent((converted / total) * 100) : 0
-    };
-  }
-
-  private async buildSales(query: AnalyticsQueryDto, financeVisible: boolean) {
-    if (!financeVisible) {
-      return {
-        financeVisible,
-        salesTotal: null,
-        averageCheck: null,
-        unpaidInvoices: {
-          count: null,
-          total: null
-        },
-        margin: null,
-        marginRate: null
-      };
-    }
-
-    const salesWhere = this.buildSalesOrderWhere(query);
-    const orderItemWhere: Prisma.OrderItemWhereInput = {
-      deletedAt: null,
-      order: salesWhere,
-      ...this.buildOrderItemCategoryFilter(query)
-    };
-    const unpaidOrderWhere: Prisma.OrderWhereInput = {
-      ...salesWhere,
-      paymentStatus: {
-        in: [PaymentStatus.UNPAID, PaymentStatus.PARTIALLY_PAID]
-      }
-    };
-    const [orders, invoiceDocuments, unpaidOrders, itemRevenueTotal, orderItems] = await Promise.all([
-      this.prisma.order.aggregate({
-        where: salesWhere,
-        _count: { _all: true },
-        _sum: {
-          total: true
-        }
-      }),
-      this.prisma.document.count({
-        where: {
-          deletedAt: null,
-          type: DocumentType.INVOICE,
-          order: unpaidOrderWhere
-        }
-      }),
-      this.prisma.order.aggregate({
-        where: unpaidOrderWhere,
-        _sum: {
-          total: true,
-          paidAmount: true
-        }
-      }),
-      this.prisma.orderItem.aggregate({
-        where: orderItemWhere,
-        _sum: { total: true }
-      }),
-      this.prisma.orderItem.findMany({
-        where: orderItemWhere,
-        select: {
-          quantity: true,
-          product: {
-            select: {
-              purchasePrice: true
-            }
-          },
-          variant: {
-            select: {
-              purchasePrice: true
-            }
-          }
-        }
-      })
-    ]);
-    const ordersCount = orders._count._all;
-    const itemRevenue = roundMoney(decimalToNumber(itemRevenueTotal._sum.total));
-    const salesTotal = query.categoryId ? itemRevenue : roundMoney(decimalToNumber(orders._sum.total));
-    const costTotal = orderItems.reduce((sum, item) => {
-      const purchasePrice = item.variant?.purchasePrice ?? item.product.purchasePrice;
-
-      if (!purchasePrice) {
-        return sum;
-      }
-
-      return sum + decimalToNumber(item.quantity) * decimalToNumber(purchasePrice);
-    }, 0);
-    const margin = roundMoney(itemRevenue - costTotal);
-    const unpaidTotal = roundMoney(Math.max(0, decimalToNumber(unpaidOrders._sum.total) - decimalToNumber(unpaidOrders._sum.paidAmount)));
-
-    return {
-      financeVisible,
-      salesTotal,
-      averageCheck: ordersCount > 0 ? roundMoney(salesTotal / ordersCount) : 0,
-      unpaidInvoices: {
-        count: invoiceDocuments,
-        total: unpaidTotal
-      },
-      margin,
-      marginRate: salesTotal > 0 ? roundPercent((margin / salesTotal) * 100) : 0
-    };
-  }
-
-  private async buildProducts(query: AnalyticsQueryDto, financeVisible: boolean) {
-    const groupedItems = await this.prisma.orderItem.groupBy({
-      by: ["productId"],
-      where: {
-        deletedAt: null,
-        order: this.buildSalesOrderWhere(query),
-        ...this.buildOrderItemCategoryFilter(query)
-      },
-      _sum: {
-        quantity: true,
-        total: true
-      },
-      _count: { _all: true }
-    });
-    const topItems = groupedItems
-      .sort((a, b) => decimalToNumber(b._sum.quantity) - decimalToNumber(a._sum.quantity))
-      .slice(0, 10);
-    const productIds = topItems.map((item) => item.productId);
-    const products = productIds.length
-      ? await this.prisma.product.findMany({
-          where: { id: { in: productIds }, deletedAt: null },
-          select: productSelect
-        })
-      : [];
-    const productMap = new Map(products.map((product) => [product.id, product]));
-
-    return {
-      popular: topItems
-        .filter((item) => productMap.has(item.productId))
-        .map((item) => ({
-          product: productMap.get(item.productId)!,
-          quantity: roundQuantity(decimalToNumber(item._sum.quantity)),
-          ordersCount: item._count._all,
-          revenue: financeVisible ? roundMoney(decimalToNumber(item._sum.total)) : null
-        }))
-    };
-  }
-
-  private async buildManagers(query: AnalyticsQueryDto, financeVisible: boolean) {
-    const groupedOrders = await this.prisma.order.groupBy({
-      by: ["managerId"],
-      where: this.buildSalesOrderWhere(query),
-      _count: { _all: true },
-      _sum: { total: true }
-    });
-    const managerIds = groupedOrders.flatMap((item) => (item.managerId ? [item.managerId] : []));
-    const managers = managerIds.length
-      ? await this.prisma.user.findMany({
-          where: { id: { in: managerIds }, deletedAt: null },
-          select: managerSelect
-        })
-      : [];
-    const managerMap = new Map(managers.map((manager) => [manager.id, manager]));
-
-    return {
-      best: groupedOrders
-        .map((item) => ({
-          managerId: item.managerId,
-          manager: item.managerId ? managerMap.get(item.managerId) ?? null : null,
-          ordersCount: item._count._all,
-          salesTotal: roundMoney(decimalToNumber(item._sum.total))
-        }))
-        .sort((a, b) => (financeVisible ? b.salesTotal - a.salesTotal : b.ordersCount - a.ordersCount))
-        .slice(0, 10)
-        .map((item) => ({
-          managerId: item.managerId,
-          manager: item.manager,
-          ordersCount: item.ordersCount,
-          salesTotal: financeVisible ? item.salesTotal : null
-        }))
-    };
-  }
-
-  private buildOrderWhere(query: AnalyticsQueryDto, options: { ignoreDate?: boolean } = {}): Prisma.OrderWhereInput {
-    const where: Prisma.OrderWhereInput = {
-      deletedAt: null
-    };
-    const and: Prisma.OrderWhereInput[] = [];
-    const createdAt = options.ignoreDate ? undefined : this.dateFilter(query);
-
-    if (createdAt) {
-      where.createdAt = createdAt;
-    }
-
-    if (query.managerId) {
-      where.managerId = query.managerId;
-    }
-
-    if (query.source) {
-      and.push({
-        OR: [
-          {
-            customer: {
-              source: query.source
-            }
-          },
-          {
-            lead: {
-              source: query.source
-            }
-          }
-        ]
-      });
-    }
-
-    if (query.categoryId) {
-      and.push({
-        items: {
-          some: {
-            deletedAt: null,
-            OR: [
-              {
-                product: {
-                  categoryId: query.categoryId
-                }
-              },
-              {
-                variant: {
-                  categoryId: query.categoryId
-                }
-              }
-            ]
-          }
-        }
-      });
-    }
-
-    if (and.length > 0) {
-      where.AND = and;
-    }
-
-    return where;
-  }
-
-  private buildSalesOrderWhere(query: AnalyticsQueryDto): Prisma.OrderWhereInput {
-    return {
-      ...this.buildOrderWhere(query),
-      status: {
-        notIn: [OrderStatus.CANCELLED, OrderStatus.REFUNDED]
-      }
-    };
-  }
-
-  private buildOrderWindowWhere(query: AnalyticsQueryDto, dateFrom: Date) {
-    return {
-      ...this.buildOrderWhere(query, { ignoreDate: true }),
-      createdAt: {
-        gte: dateFrom
-      }
-    };
-  }
-
-  private buildLeadWhere(query: AnalyticsQueryDto): Prisma.LeadWhereInput {
-    return {
-      deletedAt: null,
-      ...(this.dateFilter(query) ? { createdAt: this.dateFilter(query) } : {}),
-      ...(query.managerId ? { assignedToId: query.managerId } : {}),
-      ...(query.source ? { source: query.source } : {})
-    };
-  }
-
-  private buildStockWhere(query: AnalyticsQueryDto): Prisma.StockItemWhereInput {
-    return {
-      deletedAt: null,
-      ...(query.categoryId
-        ? {
-            product: {
-              categoryId: query.categoryId
-            }
-          }
-        : {})
-    };
-  }
-
-  private buildMovementWhere(query: AnalyticsQueryDto): Prisma.StockMovementWhereInput {
-    return {
-      deletedAt: null,
-      ...(query.categoryId
-        ? {
-            product: {
-              categoryId: query.categoryId
-            }
-          }
-        : {})
-    };
-  }
-
-  private buildOrderItemCategoryFilter(query: AnalyticsQueryDto): Prisma.OrderItemWhereInput {
-    if (!query.categoryId) {
-      return {};
-    }
-
-    return {
-      OR: [
-        {
-          product: {
-            categoryId: query.categoryId
-          }
-        },
-        {
-          variant: {
-            categoryId: query.categoryId
-          }
-        }
-      ]
-    };
-  }
-
-  private dateFilter(query: AnalyticsQueryDto) {
-    const createdAt: Prisma.DateTimeFilter = {};
-
-    if (query.dateFrom) {
-      createdAt.gte = startOfDay(new Date(query.dateFrom));
-    }
-
-    if (query.dateTo) {
-      createdAt.lte = endOfDay(new Date(query.dateTo));
-    }
-
-    return Object.keys(createdAt).length > 0 ? createdAt : undefined;
-  }
-
-  private async countOverdueTasks(query: AnalyticsQueryDto) {
-    return this.prisma.task.count({
-      where: {
-        deletedAt: null,
-        dueAt: {
-          lt: new Date()
-        },
-        status: {
-          notIn: [TaskStatus.DONE, TaskStatus.CANCELLED]
-        },
-        ...(query.managerId ? { assignedToId: query.managerId } : {})
-      }
-    });
-  }
-
-  private async countShipmentsToday(query: AnalyticsQueryDto) {
-    return this.prisma.stockMovement.count({
-      where: {
-        ...this.buildMovementWhere(query),
-        type: StockMovementType.SHIPMENT,
-        createdAt: {
-          gte: startOfDay(new Date()),
-          lte: endOfDay(new Date())
-        }
-      }
-    });
-  }
-
-  private async canViewFinance(actorId: string) {
-    return (await this.getAnalyticsAccess(actorId)).finance;
   }
 
   private async getAnalyticsAccess(actorId: string) {
@@ -676,13 +407,13 @@ export class AnalyticsService {
     });
 
     if (!user) {
-      return { finance: false, payroll: false };
+      return { payroll: false };
     }
 
     const roleCodes = new Set(user.roles.filter(({ role }) => !role.deletedAt).map(({ role }) => role.code));
 
     if (user.primaryRole === RoleCode.SUPER_ADMIN || roleCodes.has(RoleCode.SUPER_ADMIN)) {
-      return { finance: true, payroll: true };
+      return { payroll: true };
     }
 
     const permissions = new Set(
@@ -696,7 +427,6 @@ export class AnalyticsService {
     );
 
     return {
-      finance: ["payments.read", "analytics.read_finance"].some((permission) => permissions.has(permission)),
       payroll: ["payroll.read", "payroll.manage"].some((permission) => permissions.has(permission))
     };
   }
@@ -716,12 +446,25 @@ export class AnalyticsService {
     };
   }
 
+  private dateFilter(query: AnalyticsQueryDto) {
+    const createdAt: Prisma.DateTimeFilter = {};
+
+    if (query.dateFrom) {
+      createdAt.gte = startOfDay(new Date(query.dateFrom));
+    }
+
+    if (query.dateTo) {
+      createdAt.lte = endOfDay(new Date(query.dateTo));
+    }
+
+    return Object.keys(createdAt).length > 0 ? createdAt : undefined;
+  }
+
   private normalizeFilters(query: AnalyticsQueryDto) {
     return {
       dateFrom: query.dateFrom ?? null,
       dateTo: query.dateTo ?? null,
       managerId: query.managerId ?? null,
-      source: query.source ?? null,
       categoryId: query.categoryId ?? null
     };
   }
@@ -730,30 +473,12 @@ export class AnalyticsService {
 function startOfDay(date: Date) {
   const result = new Date(date);
   result.setHours(0, 0, 0, 0);
-
   return result;
 }
 
 function endOfDay(date: Date) {
   const result = new Date(date);
   result.setHours(23, 59, 59, 999);
-
-  return result;
-}
-
-function startOfWeek(date: Date) {
-  const result = startOfDay(date);
-  const day = result.getDay();
-  const mondayOffset = (day + 6) % 7;
-  result.setDate(result.getDate() - mondayOffset);
-
-  return result;
-}
-
-function startOfMonth(date: Date) {
-  const result = startOfDay(date);
-  result.setDate(1);
-
   return result;
 }
 
@@ -771,8 +496,4 @@ function roundMoney(value: number) {
 
 function roundQuantity(value: number) {
   return Math.round((value + Number.EPSILON) * 1000) / 1000;
-}
-
-function roundPercent(value: number) {
-  return Math.round((value + Number.EPSILON) * 10) / 10;
 }

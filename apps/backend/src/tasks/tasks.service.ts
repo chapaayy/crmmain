@@ -25,9 +25,6 @@ const taskSelect = {
   relatedId: true,
   completedAt: true,
   assignedToId: true,
-  customerId: true,
-  leadId: true,
-  orderId: true,
   productId: true,
   createdById: true,
   updatedById: true,
@@ -39,25 +36,6 @@ const taskSelect = {
   },
   updatedBy: {
     select: userSelect
-  },
-  customer: {
-    select: {
-      id: true,
-      name: true,
-      companyName: true
-    }
-  },
-  lead: {
-    select: {
-      id: true,
-      title: true
-    }
-  },
-  order: {
-    select: {
-      id: true,
-      number: true
-    }
   },
   product: {
     select: {
@@ -148,7 +126,7 @@ export class TasksService {
       assignIfDefined(writable, "description", dto.description, nullableString);
       assignIfDefined(writable, "priority", dto.priority);
       assignIfDefined(writable, "dueAt", dto.dueAt, (value) => new Date(value));
-      assignIfDefined(writable, "assigneeId", dto.assigneeId, nullableString);
+      assignIfDefined(writable, "assignedToId", dto.assigneeId, nullableString);
 
       if (dto.status !== undefined) {
         data.status = dto.status;
@@ -235,6 +213,11 @@ export class TasksService {
 
     return {
       deletedAt: null,
+      NOT: [
+        { relatedType: TaskRelatedType.CUSTOMER },
+        { relatedType: TaskRelatedType.LEAD },
+        { relatedType: TaskRelatedType.ORDER }
+      ],
       ...(query.status ? { status: query.status } : {}),
       ...(query.priority ? { priority: query.priority } : {}),
       ...(query.mine ? { assignedToId: actorId } : query.assigneeId ? { assignedToId: query.assigneeId } : {}),
@@ -247,10 +230,6 @@ export class TasksService {
             OR: [
               { title: { contains: query.search, mode: "insensitive" } },
               { description: { contains: query.search, mode: "insensitive" } },
-              { customer: { name: { contains: query.search, mode: "insensitive" } } },
-              { customer: { companyName: { contains: query.search, mode: "insensitive" } } },
-              { lead: { title: { contains: query.search, mode: "insensitive" } } },
-              { order: { number: { contains: query.search, mode: "insensitive" } } },
               { product: { name: { contains: query.search, mode: "insensitive" } } },
               { product: { sku: { contains: query.search, mode: "insensitive" } } }
             ]
@@ -268,34 +247,8 @@ export class TasksService {
       throw new BadRequestException("relatedType and relatedId must be provided together");
     }
 
-    if (relatedType === TaskRelatedType.CUSTOMER) {
-      await this.ensureCustomer(tx, relatedId);
-      return {
-        ...clearRelation(),
-        relatedType,
-        relatedId,
-        customerId: relatedId
-      };
-    }
-
-    if (relatedType === TaskRelatedType.LEAD) {
-      await this.ensureLead(tx, relatedId);
-      return {
-        ...clearRelation(),
-        relatedType,
-        relatedId,
-        leadId: relatedId
-      };
-    }
-
-    if (relatedType === TaskRelatedType.ORDER) {
-      await this.ensureOrder(tx, relatedId);
-      return {
-        ...clearRelation(),
-        relatedType,
-        relatedId,
-        orderId: relatedId
-      };
+    if (relatedType !== TaskRelatedType.PRODUCT) {
+      throw new BadRequestException("Only product-linked tasks are supported");
     }
 
     await this.ensureProduct(tx, relatedId);
@@ -305,39 +258,6 @@ export class TasksService {
       relatedId,
       productId: relatedId
     };
-  }
-
-  private async ensureCustomer(tx: Prisma.TransactionClient, id: string) {
-    const entity = await tx.customer.findFirst({
-      where: { id, deletedAt: null },
-      select: { id: true }
-    });
-
-    if (!entity) {
-      throw new BadRequestException("Customer not found");
-    }
-  }
-
-  private async ensureLead(tx: Prisma.TransactionClient, id: string) {
-    const entity = await tx.lead.findFirst({
-      where: { id, deletedAt: null },
-      select: { id: true }
-    });
-
-    if (!entity) {
-      throw new BadRequestException("Lead not found");
-    }
-  }
-
-  private async ensureOrder(tx: Prisma.TransactionClient, id: string) {
-    const entity = await tx.order.findFirst({
-      where: { id, deletedAt: null },
-      select: { id: true }
-    });
-
-    if (!entity) {
-      throw new BadRequestException("Order not found");
-    }
   }
 
   private async ensureProduct(tx: Prisma.TransactionClient, id: string) {
@@ -374,7 +294,15 @@ export class TasksService {
 
   private async requireTask(client: DbClient, id: string): Promise<TaskPayload> {
     const task = await client.task.findFirst({
-      where: { id, deletedAt: null },
+      where: {
+        id,
+        deletedAt: null,
+        NOT: [
+          { relatedType: TaskRelatedType.CUSTOMER },
+          { relatedType: TaskRelatedType.LEAD },
+          { relatedType: TaskRelatedType.ORDER }
+        ]
+      },
       select: taskSelect
     });
 
@@ -407,13 +335,10 @@ export class TasksService {
     });
   }
 
-  private createTimeline(tx: Prisma.TransactionClient, task: Pick<TaskPayload, "id" | "title" | "customerId" | "leadId" | "orderId">, actorId: string, type: TimelineEventType, title: string) {
+  private createTimeline(tx: Prisma.TransactionClient, task: Pick<TaskPayload, "id" | "title">, actorId: string, type: TimelineEventType, title: string) {
     return tx.timelineEvent.create({
       data: {
         taskId: task.id,
-        customerId: task.customerId ?? undefined,
-        leadId: task.leadId ?? undefined,
-        orderId: task.orderId ?? undefined,
         actorId,
         type,
         title,
@@ -458,28 +383,17 @@ function clearRelation() {
   return {
     relatedType: null,
     relatedId: null,
-    customerId: null,
-    leadId: null,
-    orderId: null,
     productId: null
   };
 }
 
-function inferRelated(task: Pick<TaskPayload, "customerId" | "leadId" | "orderId" | "productId">) {
-  if (task.customerId) {
-    return { relatedType: TaskRelatedType.CUSTOMER, relatedId: task.customerId };
-  }
-
-  if (task.leadId) {
-    return { relatedType: TaskRelatedType.LEAD, relatedId: task.leadId };
-  }
-
-  if (task.orderId) {
-    return { relatedType: TaskRelatedType.ORDER, relatedId: task.orderId };
-  }
-
+function inferRelated(task: Pick<TaskPayload, "productId" | "relatedType" | "relatedId">) {
   if (task.productId) {
     return { relatedType: TaskRelatedType.PRODUCT, relatedId: task.productId };
+  }
+
+  if (task.relatedType === TaskRelatedType.PRODUCT && task.relatedId) {
+    return { relatedType: TaskRelatedType.PRODUCT, relatedId: task.relatedId };
   }
 
   return { relatedType: null, relatedId: null };

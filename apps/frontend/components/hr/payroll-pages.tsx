@@ -10,11 +10,10 @@ import { useToast } from "@/components/toast/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import type { CommissionRule, Employee, PaginatedResponse, PayrollAdjustment, PayrollPeriod, PayrollRun } from "./hr-types";
+import type { Employee, PaginatedResponse, PayrollAdjustment, PayrollPeriod, PayrollRun } from "./hr-types";
 import { EmptyRow, LoadingRow, StatusBadge, compactPayload, formatDate, formatMoney, formatNumber } from "./hr-ui";
 
 const adjustmentTypes = ["BONUS", "PENALTY", "CORRECTION"];
-const commissionSources = ["PAID_ORDERS", "COMPLETED_ORDERS", "PROFIT"];
 
 export function PayrollPage() {
   return (
@@ -28,7 +27,6 @@ export function PayrollPage() {
           <PayrollNavCard title="Периоды" href="/payroll/periods" text="Месячные или произвольные периоды расчета." />
           <PayrollNavCard title="Расчеты" href="/payroll/runs" text="Запуск расчета, утверждение и выплата." />
           <PayrollNavCard title="Бонусы / штрафы" href="/payroll/adjustments" text="Разовые корректировки по сотрудникам." />
-          <PayrollNavCard title="Правила комиссий" href="/payroll/commission-rules" text="Проценты менеджеров с продаж." />
         </section>
       </main>
     </PermissionGate>
@@ -323,19 +321,17 @@ export function PayrollRunDetailPage({ runId }: { runId: string }) {
                     <th className="px-4 py-3 font-medium">Оклад</th>
                     <th className="px-4 py-3 font-medium">Часы/смены</th>
                     <th className="px-4 py-3 font-medium">Бонус/штраф</th>
-                    <th className="px-4 py-3 font-medium">Комиссия</th>
                     <th className="px-4 py-3 font-medium">К выплате</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {loading ? <LoadingRow colSpan={7} label="Загрузка строк" /> : !run?.lines?.length ? <EmptyRow colSpan={7} label="Строк начислений нет" /> : run.lines.map((line) => (
+                  {loading ? <LoadingRow colSpan={6} label="Загрузка строк" /> : !run?.lines?.length ? <EmptyRow colSpan={6} label="Строк начислений нет" /> : run.lines.map((line) => (
                     <tr key={line.id}>
                       <td className="px-4 py-3">{line.employee.lastName} {line.employee.firstName}<div className="text-xs text-muted-foreground">{line.employee.employeeNumber}</div></td>
                       <td className="px-4 py-3">{formatNumber(line.workedHours)} / сверх {formatNumber(line.overtimeHours)}</td>
                       <td className="px-4 py-3">{formatMoney(line.baseSalaryAmount)}</td>
                       <td className="px-4 py-3">{formatMoney(Number(line.hourlyAmount) + Number(line.shiftAmount) + Number(line.overtimeAmount))}</td>
                       <td className="px-4 py-3">{formatMoney(line.bonusAmount)} / {formatMoney(line.penaltyAmount)}</td>
-                      <td className="px-4 py-3">{formatMoney(line.commissionAmount)}</td>
                       <td className="px-4 py-3 font-medium">{formatMoney(line.netAmount)}</td>
                     </tr>
                   ))}
@@ -431,117 +427,6 @@ export function PayrollAdjustmentsPage() {
           <CardHeader><CardTitle>Список</CardTitle></CardHeader>
           <CardContent>
             <SimpleAdjustmentsTable adjustments={adjustments} loading={loading} meta={meta} onPageChange={setPage} />
-          </CardContent>
-        </Card>
-      </main>
-    </PermissionGate>
-  );
-}
-
-export function CommissionRulesPage() {
-  const auth = useAuth();
-  const { toast } = useToast();
-  const [rules, setRules] = useState<CommissionRule[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [meta, setMeta] = useState<PaginatedResponse<CommissionRule>["meta"]>();
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ employeeId: "", name: "", source: "PAID_ORDERS", percent: "", minOrderAmount: "", productCategoryId: "" });
-  const canManage = auth.hasPermission("salary_rules.manage");
-  const load = useCallback(async () => {
-    if (auth.status !== "authenticated") {
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const [rulesResponse, employeesResponse] = await Promise.all([
-        auth.api.request<PaginatedResponse<CommissionRule>>(`/commission-rules?page=${page}&limit=15`),
-        auth.api.request<PaginatedResponse<Employee>>("/employees?limit=100&isActive=true")
-      ]);
-      setRules(rulesResponse.data);
-      setMeta(rulesResponse.meta);
-      setEmployees(employeesResponse.data);
-    } catch (error) {
-      toast({ title: "Не удалось загрузить правила", description: error instanceof Error ? error.message : undefined, variant: "error" });
-    } finally {
-      setLoading(false);
-    }
-  }, [auth.api, auth.status, page, toast]);
-
-  useEffect(() => {
-    if (auth.status === "authenticated") {
-      void load();
-    }
-  }, [auth.status, load]);
-
-  async function createRule(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    try {
-      await auth.api.request("/commission-rules", {
-        method: "POST",
-        body: JSON.stringify(compactPayload({ ...form, percent: Number(form.percent), minOrderAmount: form.minOrderAmount ? Number(form.minOrderAmount) : undefined }))
-      });
-      toast({ title: "Правило создано", variant: "success" });
-      setForm((current) => ({ ...current, name: "", percent: "", minOrderAmount: "", productCategoryId: "" }));
-      await load();
-    } catch (error) {
-      toast({ title: "Не удалось создать правило", description: error instanceof Error ? error.message : undefined, variant: "error" });
-    }
-  }
-
-  return (
-    <PermissionGate permission={["salary_rules.read", "salary_rules.manage"]}>
-      <main className="space-y-4 p-4 sm:p-6">
-        <div><h2 className="text-2xl font-semibold tracking-normal">Правила комиссий</h2></div>
-        {canManage ? (
-          <Card>
-            <CardHeader><CardTitle>Новое правило</CardTitle></CardHeader>
-            <CardContent>
-              <form className="grid gap-3 md:grid-cols-3 xl:grid-cols-6" onSubmit={(event) => void createRule(event)}>
-                <SelectEmployee employees={employees} value={form.employeeId} onChange={(value) => setForm((current) => ({ ...current, employeeId: value }))} />
-                <Input placeholder="Название" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
-                <select className="h-10 rounded-md border bg-background px-3 text-sm" value={form.source} onChange={(event) => setForm((current) => ({ ...current, source: event.target.value }))}>
-                  {commissionSources.map((source) => <option key={source} value={source}>{source}</option>)}
-                </select>
-                <Input placeholder="%" type="number" value={form.percent} onChange={(event) => setForm((current) => ({ ...current, percent: event.target.value }))} />
-                <Input placeholder="Мин. заказ" type="number" value={form.minOrderAmount} onChange={(event) => setForm((current) => ({ ...current, minOrderAmount: event.target.value }))} />
-                <Input placeholder="ID категории" value={form.productCategoryId} onChange={(event) => setForm((current) => ({ ...current, productCategoryId: event.target.value }))} />
-                <Button type="submit"><Plus className="h-4 w-4" /> Создать</Button>
-              </form>
-            </CardContent>
-          </Card>
-        ) : null}
-        <Card>
-          <CardHeader><CardTitle>Список правил</CardTitle></CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto rounded-md border">
-              <table className="w-full text-sm">
-                <thead className="bg-muted text-left text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Название</th>
-                    <th className="px-4 py-3 font-medium">Сотрудник/роль</th>
-                    <th className="px-4 py-3 font-medium">Источник</th>
-                    <th className="px-4 py-3 font-medium">%</th>
-                    <th className="px-4 py-3 font-medium">Статус</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {loading ? <LoadingRow colSpan={5} label="Загрузка правил" /> : rules.length === 0 ? <EmptyRow colSpan={5} label="Правил нет" /> : rules.map((rule) => (
-                    <tr key={rule.id}>
-                      <td className="px-4 py-3">{rule.name}</td>
-                      <td className="px-4 py-3">{rule.employee ? `${rule.employee.lastName} ${rule.employee.firstName}` : rule.role?.name ?? "Общее"}</td>
-                      <td className="px-4 py-3">{rule.source}</td>
-                      <td className="px-4 py-3">{formatNumber(rule.percent)}%</td>
-                      <td className="px-4 py-3"><StatusBadge status={rule.isActive ? "ACTIVE" : "CLOSED"} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <PaginationControls meta={meta} onPageChange={setPage} />
-            </div>
           </CardContent>
         </Card>
       </main>

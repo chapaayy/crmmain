@@ -4,7 +4,7 @@ import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { RequirePermissions } from "../common/decorators/require-permissions.decorator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
-import { OrderStockOperationDto, StockAdjustDto, StockReceiptDto, StockWriteoffDto } from "./dto/stock-operation.dto";
+import { StockAdjustDto, StockReceiptDto, StockWriteoffDto } from "./dto/stock-operation.dto";
 import { StockMovementQueryDto, StockQueryDto } from "./dto/warehouse-query.dto";
 import { WarehouseService } from "./warehouse.service";
 
@@ -43,23 +43,5 @@ export class WarehouseController {
   @RequirePermissions("warehouse.manage")
   writeoff(@Body() dto: StockWriteoffDto, @CurrentUser("userId") actorId: string) {
     return this.warehouseService.writeoff(dto, actorId);
-  }
-
-  @Post("reserve")
-  @RequirePermissions("warehouse.manage")
-  reserve(@Body() dto: OrderStockOperationDto, @CurrentUser("userId") actorId: string) {
-    return this.warehouseService.reserve(dto, actorId);
-  }
-
-  @Post("release-reservation")
-  @RequirePermissions("warehouse.manage")
-  releaseReservation(@Body() dto: OrderStockOperationDto, @CurrentUser("userId") actorId: string) {
-    return this.warehouseService.releaseReservation(dto, actorId);
-  }
-
-  @Post("ship-order")
-  @RequirePermissions("warehouse.manage")
-  shipOrder(@Body() dto: OrderStockOperationDto, @CurrentUser("userId") actorId: string) {
-    return this.warehouseService.shipOrder(dto, actorId);
   }
 }

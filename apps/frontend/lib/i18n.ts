@@ -121,7 +121,6 @@ const ru: Record<string, string> = {
   "Language saved": "Язык сохранён",
   "Unable to save language": "Не удалось сохранить язык",
   "Current language": "Текущий язык",
-  "Requires payments.read": "Требуется payments.read",
   Hidden: "Скрыто",
   "Finance hidden": "Финансы скрыты",
   "Revenue hidden": "Выручка скрыта",

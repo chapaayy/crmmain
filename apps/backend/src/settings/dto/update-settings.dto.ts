@@ -1,4 +1,4 @@
-import { IsArray, IsObject, IsOptional, IsString } from "class-validator";
+import { IsObject, IsOptional } from "class-validator";
 
 export class UpdateSettingsDto {
   @IsOptional()
@@ -9,27 +9,4 @@ export class UpdateSettingsDto {
   @IsObject()
   requisites?: Record<string, unknown>;
 
-  @IsOptional()
-  @IsObject()
-  documentNumbering?: Record<string, unknown>;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  leadSources?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  orderStatuses?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  paymentMethods?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  deliveryMethods?: string[];
 }

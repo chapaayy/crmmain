@@ -20,33 +20,21 @@ export class AnalyticsController {
     return this.analyticsService.dashboard(query, actorId);
   }
 
-  @Get("orders")
-  @RequirePermissions("analytics.read")
-  orders(@Query() query: AnalyticsQueryDto) {
-    return this.analyticsService.orders(query);
-  }
-
-  @Get("sales")
-  @RequirePermissions("analytics.read")
-  sales(@Query() query: AnalyticsQueryDto, @CurrentUser("userId") actorId: string) {
-    return this.analyticsService.sales(query, actorId);
-  }
-
   @Get("products")
   @RequirePermissions("analytics.read")
-  products(@Query() query: AnalyticsQueryDto, @CurrentUser("userId") actorId: string) {
-    return this.analyticsService.products(query, actorId);
-  }
-
-  @Get("managers")
-  @RequirePermissions("analytics.read")
-  managers(@Query() query: AnalyticsQueryDto, @CurrentUser("userId") actorId: string) {
-    return this.analyticsService.managers(query, actorId);
+  products(@Query() query: AnalyticsQueryDto) {
+    return this.analyticsService.products(query);
   }
 
   @Get("warehouse")
   @RequirePermissions("analytics.read")
   warehouse(@Query() query: AnalyticsQueryDto) {
     return this.analyticsService.warehouse(query);
+  }
+
+  @Get("employees")
+  @RequirePermissions("analytics.read")
+  employees(@Query() query: AnalyticsQueryDto) {
+    return this.analyticsService.employees(query);
   }
 }

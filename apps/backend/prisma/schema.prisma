@@ -304,14 +304,6 @@ model User {
   updatedPermissions      Permission[]         @relation("PermissionUpdatedBy")
   createdRolePermissions  RolePermission[]     @relation("RolePermissionCreatedBy")
   refreshTokens           RefreshToken[]
-  ownedCustomers          Customer[]           @relation("CustomerOwner")
-  createdCustomers        Customer[]           @relation("CustomerCreatedBy")
-  updatedCustomers        Customer[]           @relation("CustomerUpdatedBy")
-  createdContacts         CustomerContact[]    @relation("CustomerContactCreatedBy")
-  updatedContacts         CustomerContact[]    @relation("CustomerContactUpdatedBy")
-  assignedLeads           Lead[]               @relation("LeadAssignedTo")
-  createdLeads            Lead[]               @relation("LeadCreatedBy")
-  updatedLeads            Lead[]               @relation("LeadUpdatedBy")
   createdProductCategories ProductCategory[]    @relation("ProductCategoryCreatedBy")
   updatedProductCategories ProductCategory[]    @relation("ProductCategoryUpdatedBy")
   createdProducts         Product[]            @relation("ProductCreatedBy")
@@ -325,14 +317,6 @@ model User {
   updatedStockItems       StockItem[]          @relation("StockItemUpdatedBy")
   createdStockMovements   StockMovement[]      @relation("StockMovementCreatedBy")
   updatedStockMovements   StockMovement[]      @relation("StockMovementUpdatedBy")
-  managedOrders           Order[]              @relation("OrderManager")
-  createdOrders           Order[]              @relation("OrderCreatedBy")
-  updatedOrders           Order[]              @relation("OrderUpdatedBy")
-  orderStatusChanges      OrderStatusHistory[] @relation("OrderStatusChangedBy")
-  createdPayments         Payment[]            @relation("PaymentCreatedBy")
-  updatedPayments         Payment[]            @relation("PaymentUpdatedBy")
-  createdDocuments        Document[]           @relation("DocumentCreatedBy")
-  updatedDocuments        Document[]           @relation("DocumentUpdatedBy")
   assignedTasks           Task[]               @relation("TaskAssignedTo")
   ownedResponsibilities   Responsibility[]     @relation("ResponsibilityOwnerUser")
   createdResponsibilities Responsibility[]     @relation("ResponsibilityCreatedBy")
@@ -383,7 +367,6 @@ model Role {
   deletedAt   DateTime?
   users       UserRole[]
   permissions RolePermission[]
-  commissionRules CommissionRule[]
 
   @@index([deletedAt])
 }
@@ -462,133 +445,6 @@ model RefreshToken {
   @@index([deletedAt])
 }
 
-model Customer {
-  id          String            @id @default(cuid())
-  code        String?           @unique
-  type        CustomerType      @default(COMPANY)
-  name        String
-  companyName String?
-  inn         String?
-  kpp         String?
-  ogrn        String?
-  legalAddress String?
-  deliveryAddress String?
-  phone       String?
-  email       String?
-  messengers  Json?
-  source      String?
-  segment     String?
-  website     String?
-  address     String?
-  notes       String?
-  status      CustomerStatus    @default(LEAD)
-  ownerId     String?
-  createdById String?
-  updatedById String?
-  owner       User?             @relation("CustomerOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  createdBy   User?             @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy   User?             @relation("CustomerUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  contacts    CustomerContact[]
-  leads       Lead[]
-  orders      Order[]
-  documents   Document[]
-  tasks       Task[]
-  comments    Comment[]
-  events      TimelineEvent[]
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  deletedAt   DateTime?
-
-  @@index([status])
-  @@index([type])
-  @@index([inn])
-  @@index([phone])
-  @@index([email])
-  @@index([source])
-  @@index([segment])
-  @@index([ownerId])
-  @@index([createdById])
-  @@index([updatedById])
-  @@index([deletedAt])
-}
-
-model CustomerContact {
-  id          String    @id @default(cuid())
-  customerId  String
-  firstName   String?
-  lastName    String?
-  fullName    String
-  position    String?
-  phone       String?
-  email       String?
-  isPrimary   Boolean   @default(false)
-  notes       String?
-  createdById String?
-  updatedById String?
-  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  createdBy   User?     @relation("CustomerContactCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy   User?     @relation("CustomerContactUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  leads       Lead[]
-  orders      Order[]   @relation("OrderContact")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
-
-  @@index([customerId])
-  @@index([email])
-  @@index([phone])
-  @@index([deletedAt])
-}
-
-model Lead {
-  id             String           @id @default(cuid())
-  number         String           @unique
-  title          String
-  phone          String?
-  email          String?
-  status         LeadStatus       @default(NEW)
-  source         String?
-  interestedProducts Json?
-  customerId     String?
-  contactId      String?
-  assignedToId   String?
-  estimatedValue Decimal?         @db.Decimal(14, 2)
-  currency       String           @default("RUB")
-  expectedCloseAt DateTime?
-  nextContactAt  DateTime?
-  convertedAt    DateTime?
-  lostReason     String?
-  comment        String?
-  notes          String?
-  createdById    String?
-  updatedById    String?
-  customer       Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  contact        CustomerContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  assignedTo     User?            @relation("LeadAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
-  createdBy      User?            @relation("LeadCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy      User?            @relation("LeadUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  orders         Order[]
-  documents      Document[]
-  tasks          Task[]
-  comments       Comment[]
-  events         TimelineEvent[]
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  deletedAt      DateTime?
-
-  @@index([status])
-  @@index([source])
-  @@index([phone])
-  @@index([email])
-  @@index([customerId])
-  @@index([contactId])
-  @@index([assignedToId])
-  @@index([nextContactAt])
-  @@index([createdAt])
-  @@index([assignedToId, createdAt])
-  @@index([deletedAt])
-}
-
 model ProductCategory {
   id          String            @id @default(cuid())
   name        String
@@ -603,7 +459,6 @@ model ProductCategory {
   updatedBy   User?             @relation("ProductCategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   products    Product[]
   variants    ProductVariant[]
-  commissionRules CommissionRule[]
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   deletedAt   DateTime?
@@ -644,7 +499,6 @@ model Product {
   variants               ProductVariant[]
   stockItems             StockItem[]
   stockMovements         StockMovement[]
-  orderItems             OrderItem[]
   tasks                  Task[]
   createdAt              DateTime         @default(now())
   updatedAt              DateTime         @updatedAt
@@ -689,7 +543,6 @@ model ProductVariant {
   updatedBy              User?           @relation("ProductVariantUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   stockItems             StockItem[]
   stockMovements         StockMovement[]
-  orderItems             OrderItem[]
   createdAt              DateTime        @default(now())
   updatedAt              DateTime        @updatedAt
   deletedAt              DateTime?
@@ -717,7 +570,6 @@ model Warehouse {
   movements      StockMovement[] @relation("StockMovementWarehouse")
   outgoingMoves  StockMovement[] @relation("StockMovementFromWarehouse")
   incomingMoves  StockMovement[] @relation("StockMovementToWarehouse")
-  orders         Order[]         @relation("OrderWarehouse")
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   deletedAt      DateTime?
@@ -763,7 +615,6 @@ model StockMovement {
   stockItemId     String?
   productId       String
   variantId       String?
-  orderId         String?
   quantity        Decimal            @db.Decimal(14, 3)
   unit            String             @default("pcs")
   balanceBefore   Decimal?           @db.Decimal(14, 3)
@@ -778,7 +629,6 @@ model StockMovement {
   stockItem       StockItem?         @relation(fields: [stockItemId], references: [id], onDelete: SetNull)
   product         Product            @relation(fields: [productId], references: [id], onDelete: Restrict)
   variant         ProductVariant?    @relation(fields: [variantId], references: [id], onDelete: SetNull)
-  order           Order?             @relation(fields: [orderId], references: [id], onDelete: SetNull)
   createdBy       User?              @relation("StockMovementCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy       User?              @relation("StockMovementUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt       DateTime           @default(now())
@@ -792,179 +642,7 @@ model StockMovement {
   @@index([stockItemId])
   @@index([productId])
   @@index([variantId])
-  @@index([orderId])
   @@index([type, createdAt])
-  @@index([deletedAt])
-}
-
-model Order {
-  id            String               @id @default(cuid())
-  number        String               @unique
-  status        OrderStatus          @default(DRAFT)
-  customerId    String
-  contactId     String?
-  leadId        String?
-  managerId     String?
-  warehouseId   String?
-  currency      String               @default("RUB")
-  subtotal      Decimal              @default(0) @db.Decimal(14, 2)
-  discountType  DiscountType         @default(NONE)
-  discountValue Decimal              @default(0) @db.Decimal(14, 2)
-  discount      Decimal              @default(0) @db.Decimal(14, 2)
-  taxRate       Decimal              @default(0) @db.Decimal(5, 2)
-  tax           Decimal              @default(0) @db.Decimal(14, 2)
-  total         Decimal              @default(0) @db.Decimal(14, 2)
-  paidAmount    Decimal              @default(0) @db.Decimal(14, 2)
-  paymentStatus PaymentStatus         @default(UNPAID)
-  dueDate       DateTime?
-  confirmedAt   DateTime?
-  shippedAt     DateTime?
-  deliveredAt   DateTime?
-  notes         String?
-  createdById   String?
-  updatedById   String?
-  customer      Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  contact       CustomerContact?     @relation("OrderContact", fields: [contactId], references: [id], onDelete: SetNull)
-  lead          Lead?                @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  manager       User?                @relation("OrderManager", fields: [managerId], references: [id], onDelete: SetNull)
-  warehouse     Warehouse?           @relation("OrderWarehouse", fields: [warehouseId], references: [id], onDelete: SetNull)
-  createdBy     User?                @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy     User?                @relation("OrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  items         OrderItem[]
-  statusHistory OrderStatusHistory[]
-  payments      Payment[]
-  documents     Document[]
-  tasks         Task[]
-  comments      Comment[]
-  events        TimelineEvent[]
-  stockMovements StockMovement[]
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-  deletedAt     DateTime?
-
-  @@index([status])
-  @@index([paymentStatus])
-  @@index([customerId])
-  @@index([contactId])
-  @@index([leadId])
-  @@index([managerId])
-  @@index([warehouseId])
-  @@index([createdAt])
-  @@index([managerId, createdAt])
-  @@index([paymentStatus, deletedAt])
-  @@index([status, deletedAt])
-  @@index([deletedAt])
-}
-
-model OrderItem {
-  id          String          @id @default(cuid())
-  orderId     String
-  productId   String
-  variantId   String?
-  sku         String
-  name        String
-  quantity    Decimal         @db.Decimal(14, 3)
-  unit        String           @default("pcs")
-  unitPrice   Decimal          @db.Decimal(14, 2)
-  discount    Decimal          @default(0) @db.Decimal(14, 2)
-  total       Decimal          @db.Decimal(14, 2)
-  notes       String?
-  order       Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product     Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
-  variant     ProductVariant?  @relation(fields: [variantId], references: [id], onDelete: SetNull)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  deletedAt   DateTime?
-
-  @@index([orderId])
-  @@index([productId])
-  @@index([variantId])
-  @@index([orderId, deletedAt])
-  @@index([productId, deletedAt])
-  @@index([deletedAt])
-}
-
-model OrderStatusHistory {
-  id             String       @id @default(cuid())
-  orderId        String
-  previousStatus OrderStatus?
-  status         OrderStatus
-  comment        String?
-  changedById    String?
-  order          Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  changedBy      User?        @relation("OrderStatusChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  deletedAt      DateTime?
-
-  @@index([orderId])
-  @@index([status])
-  @@index([changedById])
-  @@index([deletedAt])
-}
-
-model Payment {
-  id          String        @id @default(cuid())
-  orderId     String
-  status      PaymentStatus @default(PAID)
-  method      PaymentMethod @default(BANK_TRANSFER)
-  amount      Decimal       @db.Decimal(14, 2)
-  currency    String        @default("RUB")
-  dueDate     DateTime?
-  paidAt      DateTime?
-  externalId  String?
-  note        String?
-  createdById String?
-  updatedById String?
-  order       Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  createdBy   User?         @relation("PaymentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy   User?         @relation("PaymentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  documents   Document[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  deletedAt   DateTime?
-
-  @@index([orderId])
-  @@index([status])
-  @@index([paidAt])
-  @@index([deletedAt])
-}
-
-model Document {
-  id          String        @id @default(cuid())
-  type        DocumentType
-  number      String?
-  title       String
-  status      String?
-  orderId     String?
-  customerId  String?
-  leadId      String?
-  paymentId   String?
-  fileAssetId String?
-  issuedAt    DateTime?
-  expiresAt   DateTime?
-  metadata    Json?
-  createdById String?
-  updatedById String?
-  order       Order?        @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  customer    Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  lead        Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  payment     Payment?      @relation(fields: [paymentId], references: [id], onDelete: SetNull)
-  fileAsset   FileAsset?    @relation(fields: [fileAssetId], references: [id], onDelete: SetNull)
-  createdBy   User?         @relation("DocumentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy   User?         @relation("DocumentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  comments    Comment[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  deletedAt   DateTime?
-
-  @@index([type])
-  @@index([number])
-  @@index([orderId])
-  @@index([customerId])
-  @@index([leadId])
-  @@index([paymentId])
-  @@index([fileAssetId])
   @@index([deletedAt])
 }
 
@@ -981,9 +659,6 @@ model Task {
   isEmployeeTask Boolean    @default(false)
   completedAt  DateTime?
   assignedToId String?
-  customerId   String?
-  leadId       String?
-  orderId      String?
   productId    String?
   assigneeEmployeeId String?
   assigneeDepartment String?
@@ -993,9 +668,6 @@ model Task {
   assignedTo   User?        @relation("TaskAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
   assigneeEmployee EmployeeProfile? @relation("TaskAssigneeEmployee", fields: [assigneeEmployeeId], references: [id], onDelete: SetNull)
   responsibility Responsibility? @relation(fields: [responsibilityId], references: [id], onDelete: SetNull)
-  customer     Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  lead         Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  order        Order?       @relation(fields: [orderId], references: [id], onDelete: SetNull)
   product      Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
   createdBy    User?        @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy    User?        @relation("TaskUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
@@ -1016,9 +688,6 @@ model Task {
   @@index([isEmployeeTask])
   @@index([isEmployeeTask, assignedToId, status, dueAt])
   @@index([isEmployeeTask, assigneeEmployeeId, status, dueAt])
-  @@index([customerId])
-  @@index([leadId])
-  @@index([orderId])
   @@index([productId])
   @@index([dueAt])
   @@index([dueSoonNotifiedAt])
@@ -1029,27 +698,15 @@ model Comment {
   id         String    @id @default(cuid())
   body       String
   authorId   String
-  customerId String?
-  leadId     String?
-  orderId    String?
   taskId     String?
-  documentId String?
   author     User      @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Restrict)
-  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  lead       Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  order      Order?    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   task       Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  document   Document? @relation(fields: [documentId], references: [id], onDelete: Cascade)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   deletedAt  DateTime?
 
   @@index([authorId])
-  @@index([customerId])
-  @@index([leadId])
-  @@index([orderId])
   @@index([taskId])
-  @@index([documentId])
   @@index([deletedAt])
 }
 
@@ -1061,14 +718,8 @@ model TimelineEvent {
   payload     Json?
   occurredAt  DateTime          @default(now())
   actorId     String?
-  customerId  String?
-  leadId      String?
-  orderId     String?
   taskId      String?
   actor       User?             @relation("TimelineEventActor", fields: [actorId], references: [id], onDelete: SetNull)
-  customer    Customer?         @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  lead        Lead?             @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  order       Order?            @relation(fields: [orderId], references: [id], onDelete: Cascade)
   task        Task?             @relation(fields: [taskId], references: [id], onDelete: Cascade)
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
@@ -1076,9 +727,6 @@ model TimelineEvent {
 
   @@index([type])
   @@index([actorId])
-  @@index([customerId])
-  @@index([leadId])
-  @@index([orderId])
   @@index([taskId])
   @@index([occurredAt])
   @@index([deletedAt])
@@ -1155,7 +803,6 @@ model EmployeeProfile {
   timeEntries     TimeEntry[]
   payrollLines    PayrollLine[]
   adjustments     PayrollAdjustment[]
-  commissionRules CommissionRule[]
   assignedTasks    Task[] @relation("TaskAssigneeEmployee")
   ownedResponsibilities Responsibility[] @relation("ResponsibilityOwnerEmployee")
   responsibilityAssignments ResponsibilityAssignment[]
@@ -1346,31 +993,6 @@ model PayrollAdjustment {
   @@index([deletedAt])
 }
 
-model CommissionRule {
-  id                String           @id @default(cuid())
-  employeeId        String?
-  roleId            String?
-  name              String
-  source            CommissionSource @default(PAID_ORDERS)
-  percent           Decimal          @db.Decimal(5, 2)
-  minOrderAmount    Decimal?         @db.Decimal(14, 2)
-  productCategoryId String?
-  isActive          Boolean          @default(true)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  deletedAt         DateTime?
-  employee          EmployeeProfile? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  role              Role?            @relation(fields: [roleId], references: [id], onDelete: SetNull)
-  productCategory   ProductCategory? @relation(fields: [productCategoryId], references: [id], onDelete: SetNull)
-
-  @@index([employeeId])
-  @@index([roleId])
-  @@index([source])
-  @@index([productCategoryId])
-  @@index([isActive])
-  @@index([deletedAt])
-}
-
 model Responsibility {
   id              String                       @id @default(cuid())
   title           String
@@ -1532,7 +1154,6 @@ model FileAsset {
   updatedById  String?
   createdBy    User?      @relation("FileAssetCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy    User?      @relation("FileAssetUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  documents    Document[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   deletedAt    DateTime?

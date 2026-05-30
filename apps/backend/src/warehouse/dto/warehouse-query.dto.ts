@@ -23,10 +23,6 @@ export class StockMovementQueryDto extends PaginationQueryDto {
 
   @IsOptional()
   @IsString()
-  orderId?: string;
-
-  @IsOptional()
-  @IsString()
   productId?: string;
 
   @IsOptional()

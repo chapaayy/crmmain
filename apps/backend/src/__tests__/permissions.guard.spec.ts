@@ -30,14 +30,14 @@ function guardFor(requiredPermissions: string[], user: unknown) {
 }
 
 test("permissions guard allows users with required role permission", async () => {
-  const guard = guardFor(["orders.read"], {
+  const guard = guardFor(["products.read"], {
     primaryRole: RoleCode.SALES_MANAGER,
     roles: [
       {
         role: {
           code: RoleCode.SALES_MANAGER,
           deletedAt: null,
-          permissions: [{ permission: { key: "orders.read", deletedAt: null } }]
+          permissions: [{ permission: { key: "products.read", deletedAt: null } }]
         }
       }
     ]
@@ -73,7 +73,7 @@ test("permissions guard rejects missing permissions", async () => {
 });
 
 test("permissions guard rejects requests without current user", async () => {
-  const guard = guardFor(["orders.read"], null);
+  const guard = guardFor(["products.read"], null);
 
   await assert.rejects(() => guard.canActivate(contextFor()), ForbiddenException);
 });

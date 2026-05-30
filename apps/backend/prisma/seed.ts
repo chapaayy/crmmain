@@ -2,15 +2,7 @@ import {
   BagBottomType,
   BagTopType,
   BagType,
-  CustomerStatus,
-  CustomerType,
-  DiscountType,
-  CommissionSource,
   EmploymentType,
-  LeadStatus,
-  OrderStatus,
-  PaymentMethod,
-  PaymentStatus,
   PayrollAdjustmentType,
   PayrollPeriodStatus,
   PayrollRunStatus,
@@ -42,28 +34,12 @@ const permissions = [
   ["users.delete", "Delete users", "users", "delete"],
   ["roles.read", "Read roles", "roles", "read"],
   ["roles.manage", "Manage roles", "roles", "manage"],
-  ["customers.read", "Read customers", "customers", "read"],
-  ["customers.create", "Create customers", "customers", "create"],
-  ["customers.update", "Update customers", "customers", "update"],
-  ["customers.delete", "Delete customers", "customers", "delete"],
-  ["leads.read", "Read leads", "leads", "read"],
-  ["leads.create", "Create leads", "leads", "create"],
-  ["leads.update", "Update leads", "leads", "update"],
-  ["leads.delete", "Delete leads", "leads", "delete"],
   ["products.read", "Read products", "products", "read"],
   ["products.create", "Create products", "products", "create"],
   ["products.update", "Update products", "products", "update"],
   ["products.delete", "Delete products", "products", "delete"],
-  ["orders.read", "Read orders", "orders", "read"],
-  ["orders.create", "Create orders", "orders", "create"],
-  ["orders.update", "Update orders", "orders", "update"],
-  ["orders.change_status", "Change order status", "orders", "change_status"],
   ["warehouse.read", "Read warehouse", "warehouse", "read"],
   ["warehouse.manage", "Manage warehouse", "warehouse", "manage"],
-  ["payments.read", "Read payments", "payments", "read"],
-  ["payments.manage", "Manage payments", "payments", "manage"],
-  ["documents.read", "Read documents", "documents", "read"],
-  ["documents.manage", "Manage documents", "documents", "manage"],
   ["tasks.read", "Read tasks", "tasks", "read"],
   ["tasks.create", "Create tasks", "tasks", "create"],
   ["tasks.update", "Update tasks", "tasks", "update"],
@@ -85,8 +61,6 @@ const permissions = [
   ["payroll.manage", "Manage payroll", "payroll", "manage"],
   ["payroll.approve", "Approve payroll", "payroll", "approve"],
   ["payroll.export", "Export payroll", "payroll", "export"],
-  ["salary_rules.read", "Read salary rules", "salary_rules", "read"],
-  ["salary_rules.manage", "Manage salary rules", "salary_rules", "manage"],
   ["employee_tasks.read", "Read employee tasks", "employee_tasks", "read"],
   ["employee_tasks.create", "Create employee tasks", "employee_tasks", "create"],
   ["employee_tasks.update", "Update employee tasks", "employee_tasks", "update"],
@@ -112,10 +86,10 @@ const roleDescriptions: Record<RoleCode, string> = {
   SUPER_ADMIN: "Full system access with all permissions.",
   ADMIN: "Administrative access for CRM configuration and user management.",
   HR_MANAGER: "Employee profiles, schedules, attendance, and payroll preparation.",
-  PAYROLL_MANAGER: "Payroll calculation, salary rules, approvals, and exports.",
-  SALES_MANAGER: "Sales pipeline, customers, leads, orders, documents, and tasks.",
-  WAREHOUSE_MANAGER: "Warehouse, stock, product, and shipment operations.",
-  ACCOUNTANT: "Payments, invoices, documents, and order finance visibility.",
+  PAYROLL_MANAGER: "Payroll calculation, approvals, and exports.",
+  SALES_MANAGER: "Product catalog, tasks, and personal workspace.",
+  WAREHOUSE_MANAGER: "Warehouse, stock, and product operations.",
+  ACCOUNTANT: "Payroll exports and operational finance visibility.",
   VIEWER: "Read-only access to operational data."
 };
 
@@ -134,7 +108,6 @@ const defaultProductCategories = [
 const adminPermissionKeys = ["users.read", "roles.read", "audit_logs.read"];
 const hiddenReadPermissionKeys = [
   "payroll.read",
-  "salary_rules.read",
   "employee_tasks.read",
   "responsibilities.read",
   "instructions.read",
@@ -160,7 +133,6 @@ const rolePermissionKeys: Record<RoleCode, string[]> = {
     "payroll.read",
     "payroll.own",
     "payroll.manage",
-    "salary_rules.read",
     "employee_tasks.read",
     "employee_tasks.create",
     "employee_tasks.update",
@@ -180,27 +152,13 @@ const rolePermissionKeys: Record<RoleCode, string[]> = {
     "payroll.manage",
     "payroll.approve",
     "payroll.export",
-    "salary_rules.read",
-    "salary_rules.manage",
     "attendance.read",
     "employees.read",
     "employees.own"
   ],
   SALES_MANAGER: [
     "employees.own",
-    "customers.read",
-    "customers.create",
-    "customers.update",
-    "leads.read",
-    "leads.create",
-    "leads.update",
     "products.read",
-    "orders.read",
-    "orders.create",
-    "orders.update",
-    "orders.change_status",
-    "documents.read",
-    "documents.manage",
     "tasks.read",
     "tasks.create",
     "tasks.update",
@@ -217,9 +175,6 @@ const rolePermissionKeys: Record<RoleCode, string[]> = {
     "products.update",
     "warehouse.read",
     "warehouse.manage",
-    "orders.read",
-    "orders.change_status",
-    "documents.read",
     "tasks.read",
     "tasks.create",
     "tasks.update",
@@ -227,20 +182,13 @@ const rolePermissionKeys: Record<RoleCode, string[]> = {
   ],
   ACCOUNTANT: [
     "employees.own",
-    "customers.read",
-    "orders.read",
-    "payments.read",
-    "payments.manage",
     "payroll.read",
     "payroll.own",
     "payroll.manage",
     "payroll.export",
     "employees.read",
-    "documents.read",
-    "documents.manage",
     "tasks.read",
-    "analytics.read",
-    "analytics.read_finance"
+    "analytics.read"
   ],
   VIEWER: [...readPermissions, "employees.own"]
 };
@@ -291,6 +239,18 @@ interface DemoProductRecord extends DemoProductSeed {
 
 async function seedPermissions() {
   const created = new Map<string, string>();
+
+  await prisma.permission.updateMany({
+    where: {
+      key: {
+        notIn: permissionKeys as string[]
+      },
+      deletedAt: null
+    },
+    data: {
+      deletedAt: new Date()
+    }
+  });
 
   for (const [key, name, resource, action] of permissions) {
     const permission = await prisma.permission.upsert({
@@ -692,7 +652,7 @@ async function seedDemoData(actorId?: string) {
   await prisma.stockMovement.deleteMany({
     where: {
       reference: {
-        in: ["DEMO-RECEIPT", "DEMO-RESERVE-001"]
+        in: ["DEMO-RECEIPT"]
       }
     }
   });
@@ -744,254 +704,6 @@ async function seedDemoData(actorId?: string) {
     });
   }
 
-  const customer = await prisma.customer.upsert({
-    where: { code: "DEMO-CUST-AGRO" },
-    update: {
-      type: CustomerType.COMPANY,
-      name: "AgroPack Demo",
-      companyName: "AgroPack Demo LLC",
-      inn: "7700000001",
-      kpp: "770001001",
-      ogrn: "1027700000001",
-      legalAddress: "Demo legal address",
-      deliveryAddress: "Demo delivery address",
-      phone: "+1-555-0101",
-      email: "buyer@example.com",
-      source: "website",
-      segment: "agriculture",
-      status: CustomerStatus.ACTIVE,
-      ownerId: actorId,
-      notes: "Demo customer for CRM quickstart.",
-      deletedAt: null,
-      updatedById: actorId
-    },
-    create: {
-      code: "DEMO-CUST-AGRO",
-      type: CustomerType.COMPANY,
-      name: "AgroPack Demo",
-      companyName: "AgroPack Demo LLC",
-      inn: "7700000001",
-      kpp: "770001001",
-      ogrn: "1027700000001",
-      legalAddress: "Demo legal address",
-      deliveryAddress: "Demo delivery address",
-      phone: "+1-555-0101",
-      email: "buyer@example.com",
-      messengers: { telegram: "@agropack_demo" },
-      source: "website",
-      segment: "agriculture",
-      status: CustomerStatus.ACTIVE,
-      ownerId: actorId,
-      notes: "Demo customer for CRM quickstart.",
-      createdById: actorId,
-      updatedById: actorId
-    }
-  });
-  const contact = await prisma.customerContact.findFirst({
-    where: {
-      customerId: customer.id,
-      email: "buyer@example.com",
-      deletedAt: null
-    },
-    select: { id: true }
-  });
-
-  if (!contact) {
-    await prisma.customerContact.create({
-      data: {
-        customerId: customer.id,
-        fullName: "Ivan Buyer",
-        position: "Procurement manager",
-        phone: "+1-555-0101",
-        email: "buyer@example.com",
-        isPrimary: true,
-        createdById: actorId,
-        updatedById: actorId
-      }
-    });
-  }
-
-  const lead = await prisma.lead.upsert({
-    where: { number: "LEAD-DEMO-001" },
-    update: {
-      title: "Repeat order for PP bags",
-      phone: "+1-555-0102",
-      email: "lead@example.com",
-      status: LeadStatus.QUALIFIED,
-      source: "website",
-      interestedProducts: ["PP bags", "Big bags"],
-      assignedToId: actorId,
-      estimatedValue: decimal(18000),
-      nextContactAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-      comment: "Demo lead seeded for sales pipeline.",
-      deletedAt: null,
-      updatedById: actorId
-    },
-    create: {
-      number: "LEAD-DEMO-001",
-      title: "Repeat order for PP bags",
-      phone: "+1-555-0102",
-      email: "lead@example.com",
-      status: LeadStatus.QUALIFIED,
-      source: "website",
-      interestedProducts: ["PP bags", "Big bags"],
-      assignedToId: actorId,
-      estimatedValue: decimal(18000),
-      nextContactAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-      comment: "Demo lead seeded for sales pipeline.",
-      createdById: actorId,
-      updatedById: actorId
-    }
-  });
-  const orderLines = [
-    {
-      product: variants[0].product,
-      variant: variants[0].variant,
-      quantity: 300,
-      unitPrice: 12.5,
-      discount: 0
-    },
-    {
-      product: variants[2].product,
-      variant: variants[2].variant,
-      quantity: 20,
-      unitPrice: 550,
-      discount: 0
-    }
-  ];
-  const subtotal = roundMoney(orderLines.reduce((sum, line) => sum + line.quantity * line.unitPrice - line.discount, 0));
-  const discountValue = 5;
-  const discount = roundMoney((subtotal * discountValue) / 100);
-  const taxable = roundMoney(subtotal - discount);
-  const taxRate = 20;
-  const tax = roundMoney((taxable * taxRate) / 100);
-  const total = roundMoney(taxable + tax);
-  const paidAmount = 10000;
-  const order = await prisma.order.upsert({
-    where: { number: "ORD-DEMO-001" },
-    update: {
-      status: OrderStatus.RESERVED,
-      customerId: customer.id,
-      leadId: lead.id,
-      managerId: actorId,
-      warehouseId: warehouse.id,
-      currency: "RUB",
-      subtotal: decimal(subtotal),
-      discountType: DiscountType.PERCENT,
-      discountValue: decimal(discountValue),
-      discount: decimal(discount),
-      taxRate: decimal(taxRate),
-      tax: decimal(tax),
-      total: decimal(total),
-      paidAmount: decimal(paidAmount),
-      paymentStatus: PaymentStatus.PARTIALLY_PAID,
-      notes: "Demo order with backend-calculated totals.",
-      deletedAt: null,
-      updatedById: actorId
-    },
-    create: {
-      number: "ORD-DEMO-001",
-      status: OrderStatus.RESERVED,
-      customerId: customer.id,
-      leadId: lead.id,
-      managerId: actorId,
-      warehouseId: warehouse.id,
-      currency: "RUB",
-      subtotal: decimal(subtotal),
-      discountType: DiscountType.PERCENT,
-      discountValue: decimal(discountValue),
-      discount: decimal(discount),
-      taxRate: decimal(taxRate),
-      tax: decimal(tax),
-      total: decimal(total),
-      paidAmount: decimal(paidAmount),
-      paymentStatus: PaymentStatus.PARTIALLY_PAID,
-      notes: "Demo order with backend-calculated totals.",
-      createdById: actorId,
-      updatedById: actorId
-    }
-  });
-
-  await prisma.orderItem.deleteMany({ where: { orderId: order.id } });
-  await prisma.payment.deleteMany({ where: { orderId: order.id, externalId: "DEMO-PAY-001" } });
-  await prisma.orderStatusHistory.deleteMany({ where: { orderId: order.id } });
-
-  for (const line of orderLines) {
-    const lineTotal = roundMoney(line.quantity * line.unitPrice - line.discount);
-
-    await prisma.orderItem.create({
-      data: {
-        orderId: order.id,
-        productId: line.product.id,
-        variantId: line.variant.id,
-        sku: line.variant.sku,
-        name: line.variant.name,
-        quantity: decimal(line.quantity),
-        unit: "pcs",
-        unitPrice: decimal(line.unitPrice),
-        discount: decimal(line.discount),
-        total: decimal(lineTotal)
-      }
-    });
-  }
-
-  await prisma.payment.create({
-    data: {
-      orderId: order.id,
-      status: PaymentStatus.PAID,
-      method: PaymentMethod.BANK_TRANSFER,
-      amount: decimal(paidAmount),
-      currency: "RUB",
-      paidAt: new Date(),
-      externalId: "DEMO-PAY-001",
-      note: "Demo partial payment",
-      createdById: actorId,
-      updatedById: actorId
-    }
-  });
-  await prisma.orderStatusHistory.createMany({
-    data: [
-      {
-        orderId: order.id,
-        previousStatus: null,
-        status: OrderStatus.DRAFT,
-        comment: "Demo order created",
-        changedById: actorId
-      },
-      {
-        orderId: order.id,
-        previousStatus: OrderStatus.DRAFT,
-        status: OrderStatus.RESERVED,
-        comment: "Demo stock reserved",
-        changedById: actorId
-      }
-    ]
-  });
-  await prisma.stockMovement.create({
-    data: {
-      type: StockMovementType.RESERVATION,
-      warehouseId: warehouse.id,
-      stockItemId: (await prisma.stockItem.findFirstOrThrow({
-        where: {
-          warehouseId: warehouse.id,
-          variantId: variants[0].variant.id,
-          deletedAt: null
-        },
-        select: { id: true }
-      })).id,
-      productId: variants[0].product.id,
-      variantId: variants[0].variant.id,
-      orderId: order.id,
-      quantity: decimal(100),
-      unit: "pcs",
-      balanceBefore: decimal(0),
-      balanceAfter: decimal(100),
-      reference: "DEMO-RESERVE-001",
-      note: "Demo reservation",
-      createdById: actorId,
-      updatedById: actorId
-    }
-  });
 }
 
 async function seedHrDemoData(actorId?: string) {
@@ -1192,29 +904,6 @@ async function seedHrDemoData(actorId?: string) {
           amount: decimal(10000),
           reason: "Demo performance bonus",
           createdById: actorId
-        }
-      })
-  );
-
-  await upsertFirst(
-    () => prisma.commissionRule.findFirst({ where: { employeeId: employee.id, name: "Demo manager commission", deletedAt: null } }),
-    (id) =>
-      prisma.commissionRule.update({
-        where: { id },
-        data: {
-          source: CommissionSource.PAID_ORDERS,
-          percent: decimal(2),
-          isActive: true
-        }
-      }),
-    () =>
-      prisma.commissionRule.create({
-        data: {
-          employeeId: employee.id,
-          name: "Demo manager commission",
-          source: CommissionSource.PAID_ORDERS,
-          percent: decimal(2),
-          isActive: true
         }
       })
   );

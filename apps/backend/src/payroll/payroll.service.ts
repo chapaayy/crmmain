@@ -2,8 +2,6 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { ConfigService } from "@nestjs/config";
 import {
   AuditAction,
-  CommissionSource,
-  OrderStatus,
   PayrollAdjustmentType,
   PayrollPeriodStatus,
   PayrollRunStatus,
@@ -171,13 +169,6 @@ const lockedPeriodStatuses: PayrollPeriodStatus[] = [
   PayrollPeriodStatus.PAID,
   PayrollPeriodStatus.CLOSED
 ];
-
-interface CommissionRuleConfig {
-  source: CommissionSource;
-  percent: Prisma.Decimal | number | string;
-  minOrderAmount?: Prisma.Decimal | number | string | null;
-  productCategoryId?: string | null;
-}
 
 interface PayrollLineCalculation {
   baseSalaryAmount: number;
@@ -705,7 +696,7 @@ export class PayrollService {
         .filter((adjustment) => adjustment.type === PayrollAdjustmentType.PENALTY || (adjustment.type === PayrollAdjustmentType.CORRECTION && decimalToNumber(adjustment.amount) < 0))
         .reduce((sum, adjustment) => sum + Math.abs(decimalToNumber(adjustment.amount)), 0)
     );
-    const commissionAmount = await this.calculateCommission(tx, employee, period);
+    const commissionAmount = await this.calculateCommission();
     const grossAmount = roundMoney(baseSalaryAmount + hourlyAmount + shiftAmount + overtimeAmount + bonusAmount + commissionAmount);
     const netAmount = roundMoney(Math.max(0, grossAmount - penaltyAmount));
 
@@ -726,111 +717,12 @@ export class PayrollService {
     };
   }
 
-  private async calculateCommission(tx: Prisma.TransactionClient, employee: PayrollEmployee, period: PayrollRunPayload["period"]) {
+  private async calculateCommission() {
     if (!this.config.get<boolean>("payroll.enableSalesCommission", true)) {
       return 0;
     }
 
-    const roleIds = employee.user.roles.filter(({ role }) => !role.deletedAt).map(({ roleId }) => roleId);
-    const rules = await tx.commissionRule.findMany({
-      where: {
-        deletedAt: null,
-        isActive: true,
-        OR: [
-          { employeeId: employee.id },
-          ...(roleIds.length ? [{ roleId: { in: roleIds } }] : [])
-        ]
-      },
-      select: {
-        source: true,
-        percent: true,
-        minOrderAmount: true,
-        productCategoryId: true
-      }
-    });
-    const effectiveRules: CommissionRuleConfig[] =
-      rules.length > 0
-        ? rules
-        : employee.commissionRate
-          ? [{ source: CommissionSource.PAID_ORDERS, percent: employee.commissionRate }]
-          : [];
-    let total = 0;
-
-    for (const rule of effectiveRules) {
-      const base = await this.commissionBaseForRule(tx, employee.userId, period, rule);
-      total = roundMoney(total + (base * decimalToNumber(rule.percent)) / 100);
-    }
-
-    return total;
-  }
-
-  private async commissionBaseForRule(
-    tx: Prisma.TransactionClient,
-    managerId: string,
-    period: PayrollRunPayload["period"],
-    rule: CommissionRuleConfig
-  ) {
-    const statuses = commissionStatuses(rule.source);
-    const orderWhere: Prisma.OrderWhereInput = {
-      deletedAt: null,
-      managerId,
-      status: { in: statuses },
-      createdAt: { gte: period.dateFrom, lte: period.dateTo },
-      ...(rule.minOrderAmount ? { total: { gte: money(decimalToNumber(rule.minOrderAmount)) } } : {})
-    };
-
-    if (rule.productCategoryId || rule.source === CommissionSource.PROFIT) {
-      const items = await tx.orderItem.findMany({
-        where: {
-          deletedAt: null,
-          order: orderWhere,
-          ...(rule.productCategoryId
-            ? {
-                OR: [
-                  { product: { categoryId: rule.productCategoryId } },
-                  { variant: { categoryId: rule.productCategoryId } }
-                ]
-              }
-            : {})
-        },
-        select: {
-          quantity: true,
-          total: true,
-          product: {
-            select: {
-              purchasePrice: true
-            }
-          },
-          variant: {
-            select: {
-              purchasePrice: true
-            }
-          }
-        }
-      });
-
-      return roundMoney(
-        items.reduce((sum, item) => {
-          const revenue = decimalToNumber(item.total);
-
-          if (rule.source !== CommissionSource.PROFIT) {
-            return sum + revenue;
-          }
-
-          const purchasePrice = item.variant?.purchasePrice ?? item.product.purchasePrice;
-          const cost = purchasePrice ? decimalToNumber(item.quantity) * decimalToNumber(purchasePrice) : 0;
-
-          return sum + Math.max(0, revenue - cost);
-        }, 0)
-      );
-    }
-
-    const orders = await tx.order.findMany({
-      where: orderWhere,
-      select: { total: true }
-    });
-
-    return roundMoney(orders.reduce((sum, order) => sum + decimalToNumber(order.total), 0));
+    return 0;
   }
 
   private async requirePeriod(client: DbClient, id: string) {
@@ -937,14 +829,6 @@ function assignIfDefined<V>(target: Record<string, unknown>, key: string, value:
   if (value !== undefined) {
     target[key] = mapper ? mapper(value) : value;
   }
-}
-
-function commissionStatuses(source: CommissionSource): OrderStatus[] {
-  if (source === CommissionSource.COMPLETED_ORDERS) {
-    return [OrderStatus.DELIVERED, OrderStatus.COMPLETED];
-  }
-
-  return [OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED, OrderStatus.COMPLETED];
 }
 
 function businessDays(dateFrom: Date, dateTo: Date) {

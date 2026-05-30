@@ -1,7 +1,9 @@
 import { TaskPriority, TaskRelatedType, TaskStatus } from "@prisma/client";
 import { Transform } from "class-transformer";
-import { IsBoolean, IsDateString, IsEnum, IsOptional, IsString } from "class-validator";
+import { IsBoolean, IsDateString, IsEnum, IsIn, IsOptional, IsString } from "class-validator";
 import { PaginationQueryDto } from "../../common/dto/pagination-query.dto";
+
+const supportedTaskRelatedTypes = [TaskRelatedType.PRODUCT];
 
 function toOptionalBoolean(value: unknown) {
   if (value === undefined || value === null || value === "") {
@@ -41,7 +43,7 @@ export class TaskQueryDto extends PaginationQueryDto {
   creatorId?: string;
 
   @IsOptional()
-  @IsEnum(TaskRelatedType)
+  @IsIn(supportedTaskRelatedTypes)
   relatedType?: TaskRelatedType;
 
   @IsOptional()

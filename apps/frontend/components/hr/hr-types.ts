@@ -142,26 +142,3 @@ export interface PayrollAdjustment {
   employee?: Employee;
   period?: PayrollPeriod;
 }
-
-export interface CommissionRule {
-  id: string;
-  employeeId?: string | null;
-  roleId?: string | null;
-  name: string;
-  source: string;
-  percent: string | number;
-  minOrderAmount?: string | number | null;
-  productCategoryId?: string | null;
-  isActive: boolean;
-  employee?: Employee | null;
-  role?: {
-    id: string;
-    code: string;
-    name: string;
-  } | null;
-  productCategory?: {
-    id: string;
-    name: string;
-    slug: string;
-  } | null;
-}

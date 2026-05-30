@@ -1,7 +1,5 @@
-import type { PaginationMeta } from "@/components/admin/admin-types";
+import type { PaginationMeta, UserSummary } from "@/lib/shared-types";
 import type { Product, ProductVariant } from "@/components/products/product-types";
-import type { Order } from "@/components/orders/order-types";
-import type { UserSummary } from "@/components/customers/crm-types";
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -18,7 +16,6 @@ export interface Warehouse {
   manager?: UserSummary | null;
   _count?: {
     stockItems: number;
-    orders: number;
   };
 }
 
@@ -66,7 +63,6 @@ export interface StockMovement {
   warehouseId: string;
   productId: string;
   variantId?: string | null;
-  orderId?: string | null;
   quantity: string | number;
   unit: string;
   balanceBefore?: string | number | null;
@@ -85,19 +81,10 @@ export interface StockMovement {
     sku: string;
     name: string;
   } | null;
-  order?: {
-    id: string;
-    number: string;
-    status: string;
-  } | null;
 }
 
 export interface ProductsResponse {
   data: Product[];
-}
-
-export interface OrdersResponse {
-  data: Order[];
 }
 
 export type { ProductVariant };

@@ -269,7 +269,7 @@ function MyStatsGrid({ data, showPayroll, showSecrets }: { data: MySummary; show
       <MetricCard icon={CalendarClock} label="Сегодняшняя смена" value={data.todayShift ? data.todayShift.status : "Нет"} note={data.todayShift ? formatDate(data.todayShift.date) : "Смена не назначена"} />
       <MetricCard icon={Clock3} label="Часы за месяц" value={`${formatNumber(data.stats.workedHoursThisMonth)} ч`} note={`${formatNumber(data.stats.workedHoursToday)} ч сегодня`} />
       {showPayroll ? <MetricCard icon={HandCoins} label="К выплате" value={formatMoney(data.payroll?.line?.netAmount)} note={data.payroll?.period?.name ?? "Период не найден"} /> : null}
-      {showPayroll ? <MetricCard icon={CheckCircle2} label="Бонусы / штрафы" value={`${formatMoney(data.payroll?.line?.bonusAmount)} / ${formatMoney(data.payroll?.line?.penaltyAmount)}`} note={`${formatMoney(data.payroll?.line?.commissionAmount)} комиссии`} /> : null}
+      {showPayroll ? <MetricCard icon={CheckCircle2} label="Бонусы / штрафы" value={`${formatMoney(data.payroll?.line?.bonusAmount)} / ${formatMoney(data.payroll?.line?.penaltyAmount)}`} note={`${formatNumber(data.payroll?.line?.workedHours)} ч за период`} /> : null}
       <MetricCard icon={Inbox} label="Уведомления" value={data.stats.unreadNotifications} note={showSecrets ? `${data.stats.secrets} доступов metadata` : "Непрочитанные"} />
     </section>
   );
@@ -487,7 +487,7 @@ function MyPayrollCard({ payroll }: { payroll: MySummary["payroll"] }) {
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MiniMetric label="Период" value={payroll.period?.name ?? "-"} />
           <MiniMetric label="Начислено" value={formatMoney(payroll.line?.grossAmount)} />
-          <MiniMetric label="Комиссии" value={formatMoney(payroll.line?.commissionAmount)} />
+          <MiniMetric label="Бонусы" value={formatMoney(payroll.line?.bonusAmount)} />
           <MiniMetric label="К выплате" value={formatMoney(payroll.line?.netAmount)} />
         </div>
         {payroll.line ? (

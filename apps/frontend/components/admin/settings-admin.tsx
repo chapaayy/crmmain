@@ -18,12 +18,7 @@ interface SettingsResponse {
 
 const emptySettings: SettingsPayload = {
   companyProfile: {},
-  requisites: {},
-  documentNumbering: {},
-  leadSources: [],
-  orderStatuses: [],
-  paymentMethods: [],
-  deliveryMethods: []
+  requisites: {}
 };
 
 export function SettingsAdmin() {
@@ -77,7 +72,7 @@ export function SettingsAdmin() {
   return (
     <PermissionGate permission="settings.manage">
       <main className="p-4 sm:p-6">
-        <AdminPageHeader title="Settings" description="Company data, document rules, and operational dictionaries." permission="settings.manage" />
+        <AdminPageHeader title="Settings" description="Company profile and requisites." permission="settings.manage" />
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -107,33 +102,6 @@ export function SettingsAdmin() {
                     onChange={(value) => setSettings({ ...settings, requisites: { ...settings.requisites, [key]: value } })}
                   />
                 ))}
-              </SettingsCard>
-              <SettingsCard title="Document numbering">
-                {[
-                  "orderPrefix",
-                  "invoicePrefix",
-                  "commercialOfferPrefix",
-                  "deliveryNotePrefix",
-                  "actPrefix",
-                  "contractPrefix",
-                  "startFrom",
-                  "yearlyReset"
-                ].map((key) => (
-                  <SettingField
-                    key={key}
-                    label={key}
-                    value={String(settings.documentNumbering[key] ?? "")}
-                    onChange={(value) =>
-                      setSettings({ ...settings, documentNumbering: { ...settings.documentNumbering, [key]: coerceValue(value) } })
-                    }
-                  />
-                ))}
-              </SettingsCard>
-              <SettingsCard title="Dictionaries">
-                <ArrayField label="Lead sources" value={settings.leadSources} onChange={(value) => setSettings({ ...settings, leadSources: value })} />
-                <ArrayField label="Order statuses" value={settings.orderStatuses} onChange={(value) => setSettings({ ...settings, orderStatuses: value })} />
-                <ArrayField label="Payment methods" value={settings.paymentMethods} onChange={(value) => setSettings({ ...settings, paymentMethods: value })} />
-                <ArrayField label="Delivery methods" value={settings.deliveryMethods} onChange={(value) => setSettings({ ...settings, deliveryMethods: value })} />
               </SettingsCard>
             </div>
             <Button disabled={saving} type="submit">
@@ -173,41 +141,4 @@ function SettingField({
       <Input id={label} value={value} onChange={(event) => onChange(event.target.value)} />
     </div>
   );
-}
-
-function ArrayField({
-  label,
-  value,
-  onChange
-}: {
-  label: string;
-  value: string[];
-  onChange: (value: string[]) => void;
-}) {
-  return (
-    <div className="space-y-2 sm:col-span-2">
-      <Label htmlFor={label}>{label}</Label>
-      <Input id={label} value={value.join(", ")} onChange={(event) => onChange(splitList(event.target.value))} />
-    </div>
-  );
-}
-
-function splitList(value: string) {
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function coerceValue(value: string) {
-  if (value === "true") {
-    return true;
-  }
-
-  if (value === "false") {
-    return false;
-  }
-
-  const numeric = Number(value);
-  return Number.isNaN(numeric) || value.trim() === "" ? value : numeric;
 }

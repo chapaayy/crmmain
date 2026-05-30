@@ -1,9 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { AuditAction, NotificationType, OrderStatus, Prisma, StockMovementType, TimelineEventType } from "@prisma/client";
+import { AuditAction, NotificationType, Prisma, StockMovementType } from "@prisma/client";
 import { createPaginationMeta } from "../common/dto/paginated-response.dto";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { OrderStockOperationDto, StockAdjustDto, StockLineDto, StockReceiptDto, StockWriteoffDto } from "./dto/stock-operation.dto";
+import { StockAdjustDto, StockReceiptDto, StockWriteoffDto } from "./dto/stock-operation.dto";
 import { CreateWarehouseDto, UpdateWarehouseDto } from "./dto/warehouse.dto";
 import { StockMovementQueryDto, StockQueryDto } from "./dto/warehouse-query.dto";
 
@@ -44,8 +44,7 @@ const warehouseSelect = {
   },
   _count: {
     select: {
-      stockItems: true,
-      orders: true
+      stockItems: true
     }
   }
 } satisfies Prisma.WarehouseSelect;
@@ -84,7 +83,6 @@ const movementSelect = {
   stockItemId: true,
   productId: true,
   variantId: true,
-  orderId: true,
   quantity: true,
   unit: true,
   balanceBefore: true,
@@ -105,59 +103,14 @@ const movementSelect = {
   variant: {
     select: variantSelect
   },
-  order: {
-    select: {
-      id: true,
-      number: true,
-      status: true
-    }
-  },
   createdBy: {
     select: managerSelect
   }
 } satisfies Prisma.StockMovementSelect;
 
-const orderForStockSelect = {
-  id: true,
-  number: true,
-  status: true,
-  warehouseId: true,
-  items: {
-    where: { deletedAt: null },
-    select: {
-      id: true,
-      productId: true,
-      variantId: true,
-      quantity: true,
-      unit: true,
-      variant: {
-        select: {
-          id: true,
-          sku: true,
-          name: true
-        }
-      }
-    }
-  }
-} satisfies Prisma.OrderSelect;
-
 type WarehousePayload = Prisma.WarehouseGetPayload<{ select: typeof warehouseSelect }>;
 type StockItemPayload = Prisma.StockItemGetPayload<{ select: typeof stockItemSelect }>;
 type VariantPayload = Prisma.ProductVariantGetPayload<{ select: typeof variantSelect }>;
-type OrderForStockPayload = Prisma.OrderGetPayload<{ select: typeof orderForStockSelect }>;
-
-interface OrderStockBalance {
-  reserved: number;
-  shipped: number;
-}
-
-const stockLockedOrderStatuses: OrderStatus[] = [
-  OrderStatus.SHIPPED,
-  OrderStatus.DELIVERED,
-  OrderStatus.COMPLETED,
-  OrderStatus.CANCELLED,
-  OrderStatus.REFUNDED
-];
 
 @Injectable()
 export class WarehouseService {
@@ -391,162 +344,6 @@ export class WarehouseService {
     return { stockItem: this.serializeStockItem(stockItem) };
   }
 
-  async reserve(dto: OrderStockOperationDto, actorId: string) {
-    const result = await this.prisma.$transaction(async (tx) => {
-      const order = await this.requireOrderForStock(tx, dto.orderId);
-      const lines = await this.resolveOrderLines(order, dto.items);
-      const balances = await this.getOrderMovementBalances(tx, dto.orderId);
-      const orderedQuantities = this.orderQuantities(order);
-      const stockItems: StockItemPayload[] = [];
-
-      await this.ensureOrderWarehouse(tx, order, dto.warehouseId, actorId);
-
-      for (const line of lines) {
-        const balance = balances.get(line.productVariantId) ?? { reserved: 0, shipped: 0 };
-        const orderedQuantity = orderedQuantities.get(line.productVariantId) ?? 0;
-        const reservable = roundQuantity(orderedQuantity - balance.reserved - balance.shipped);
-
-        if (line.quantity > reservable) {
-          throw new BadRequestException("Reservation quantity exceeds remaining order quantity");
-        }
-
-        const item = await this.changeReservation(tx, dto.warehouseId, line.productVariantId, line.quantity, actorId, cleanUnit(line.unit), "reserve");
-
-        await this.createMovement(tx, {
-          type: StockMovementType.RESERVATION,
-          stockItem: item,
-          quantity: line.quantity,
-          actorId,
-          orderId: dto.orderId,
-          reference: dto.reference ?? order.number,
-          note: line.note ?? dto.note,
-          balanceBefore: item.balanceBefore,
-          balanceAfter: item.balanceAfter
-        });
-        stockItems.push(item.stockItem);
-      }
-
-      await this.setOrderStatusIfNeeded(tx, order, OrderStatus.RESERVED, actorId, "Stock reserved");
-      await this.audit(tx, actorId, AuditAction.UPDATE, "StockReservation", dto.orderId, undefined, {
-        orderId: dto.orderId,
-        warehouseId: dto.warehouseId,
-        items: lines
-      });
-
-      return { stockItems, orderId: dto.orderId };
-    });
-
-    this.publishLowStockForItems(result.stockItems);
-
-    return { stockItems: result.stockItems.map((item) => this.serializeStockItem(item)), orderId: result.orderId };
-  }
-
-  async releaseReservation(dto: OrderStockOperationDto, actorId: string) {
-    const result = await this.prisma.$transaction(async (tx) => {
-      const order = await this.requireOrderForStock(tx, dto.orderId);
-      const lines = await this.resolveOrderLines(order, dto.items);
-      const balances = await this.getOrderMovementBalances(tx, dto.orderId);
-      const stockItems: StockItemPayload[] = [];
-
-      await this.ensureOrderWarehouse(tx, order, dto.warehouseId, actorId);
-
-      for (const line of lines) {
-        const balance = balances.get(line.productVariantId) ?? { reserved: 0, shipped: 0 };
-
-        if (line.quantity > balance.reserved) {
-          throw new BadRequestException("Cannot release more than this order has reserved");
-        }
-
-        const item = await this.changeReservation(tx, dto.warehouseId, line.productVariantId, line.quantity, actorId, cleanUnit(line.unit), "release");
-
-        await this.createMovement(tx, {
-          type: StockMovementType.RELEASE_RESERVATION,
-          stockItem: item,
-          quantity: line.quantity,
-          actorId,
-          orderId: dto.orderId,
-          reference: dto.reference ?? order.number,
-          note: line.note ?? dto.note,
-          balanceBefore: item.balanceBefore,
-          balanceAfter: item.balanceAfter
-        });
-        stockItems.push(item.stockItem);
-      }
-
-      await tx.timelineEvent.create({
-        data: {
-          orderId: dto.orderId,
-          actorId,
-          type: TimelineEventType.STOCK_MOVED,
-          title: "Stock reservation released",
-          description: dto.note
-        }
-      });
-      await this.audit(tx, actorId, AuditAction.UPDATE, "StockReleaseReservation", dto.orderId, undefined, {
-        orderId: dto.orderId,
-        warehouseId: dto.warehouseId,
-        items: lines
-      });
-
-      return { stockItems, orderId: dto.orderId };
-    });
-
-    this.publishLowStockForItems(result.stockItems);
-
-    return { stockItems: result.stockItems.map((item) => this.serializeStockItem(item)), orderId: result.orderId };
-  }
-
-  async shipOrder(dto: OrderStockOperationDto, actorId: string) {
-    const result = await this.prisma.$transaction(async (tx) => {
-      const order = await this.requireOrderForStock(tx, dto.orderId);
-      const lines = await this.resolveOrderLines(order, dto.items);
-      const balances = await this.getOrderMovementBalances(tx, dto.orderId);
-      const orderedQuantities = this.orderQuantities(order);
-      const stockItems: StockItemPayload[] = [];
-
-      await this.ensureOrderWarehouse(tx, order, dto.warehouseId, actorId);
-
-      for (const line of lines) {
-        const balance = balances.get(line.productVariantId) ?? { reserved: 0, shipped: 0 };
-        const orderedQuantity = orderedQuantities.get(line.productVariantId) ?? 0;
-        const shippable = roundQuantity(orderedQuantity - balance.shipped);
-        const reservedToConsume = Math.min(balance.reserved, line.quantity);
-
-        if (line.quantity > shippable) {
-          throw new BadRequestException("Shipment quantity exceeds remaining order quantity");
-        }
-
-        const item = await this.shipQuantity(tx, dto.warehouseId, line.productVariantId, line.quantity, reservedToConsume, actorId, cleanUnit(line.unit));
-
-        await this.createMovement(tx, {
-          type: StockMovementType.SHIPMENT,
-          stockItem: item,
-          quantity: line.quantity,
-          actorId,
-          orderId: dto.orderId,
-          reference: dto.reference ?? order.number,
-          note: line.note ?? dto.note,
-          balanceBefore: item.balanceBefore,
-          balanceAfter: item.balanceAfter
-        });
-        stockItems.push(item.stockItem);
-      }
-
-      await this.setOrderStatusIfNeeded(tx, order, OrderStatus.SHIPPED, actorId, "Order shipped from warehouse");
-      await this.audit(tx, actorId, AuditAction.UPDATE, "StockShipment", dto.orderId, undefined, {
-        orderId: dto.orderId,
-        warehouseId: dto.warehouseId,
-        items: lines
-      });
-
-      return { stockItems, orderId: dto.orderId };
-    });
-
-    this.publishLowStockForItems(result.stockItems);
-
-    return { stockItems: result.stockItems.map((item) => this.serializeStockItem(item)), orderId: result.orderId };
-  }
-
   private buildStockWhere(query: StockQueryDto): Prisma.StockItemWhereInput {
     return {
       deletedAt: null,
@@ -582,7 +379,6 @@ export class WarehouseService {
     return {
       deletedAt: null,
       ...(query.warehouseId ? { warehouseId: query.warehouseId } : {}),
-      ...(query.orderId ? { orderId: query.orderId } : {}),
       ...(query.productId ? { productId: query.productId } : {}),
       ...(query.variantId ? { variantId: query.variantId } : {}),
       ...(query.type ? { type: query.type } : {}),
@@ -593,8 +389,7 @@ export class WarehouseService {
               { reference: { contains: query.search, mode: "insensitive" } },
               { note: { contains: query.search, mode: "insensitive" } },
               { product: { name: { contains: query.search, mode: "insensitive" } } },
-              { variant: { sku: { contains: query.search, mode: "insensitive" } } },
-              { order: { number: { contains: query.search, mode: "insensitive" } } }
+              { variant: { sku: { contains: query.search, mode: "insensitive" } } }
             ]
           }
         : {})
@@ -674,7 +469,7 @@ export class WarehouseService {
     const available = before - reserved;
 
     if (quantity > (useAvailableOnly ? available : before)) {
-      throw new BadRequestException(useAvailableOnly ? "Cannot write off more than available stock" : "Cannot ship more than physical stock");
+      throw new BadRequestException(useAvailableOnly ? "Cannot write off more than available stock" : "Cannot reduce more than physical stock");
     }
 
     const after = roundQuantity(before - quantity);
@@ -682,90 +477,6 @@ export class WarehouseService {
       where: { id: item.id },
       data: {
         quantity: quantityDecimal(after),
-        unit,
-        updatedById: actorId
-      },
-      select: stockItemSelect
-    });
-
-    return { stockItem, balanceBefore: before, balanceAfter: after };
-  }
-
-  private async changeReservation(
-    tx: Prisma.TransactionClient,
-    warehouseId: string,
-    productVariantId: string,
-    quantity: number,
-    actorId: string,
-    unit: string,
-    mode: "reserve" | "release"
-  ) {
-    const item = await this.getOrCreateStockItem(tx, warehouseId, productVariantId, actorId, unit);
-    const physical = decimalToNumber(item.quantity);
-    const beforeReserved = decimalToNumber(item.reservedQuantity);
-    const available = calculateAvailableStock(physical, beforeReserved);
-    const afterReserved = mode === "reserve" ? roundQuantity(beforeReserved + quantity) : roundQuantity(beforeReserved - quantity);
-
-    if (mode === "reserve") {
-      assertCanReserveStock(physical, beforeReserved, quantity);
-    }
-
-    if (mode === "release" && quantity > beforeReserved) {
-      throw new BadRequestException("Cannot release more than reserved stock");
-    }
-
-    const stockItem = await tx.stockItem.update({
-      where: { id: item.id },
-      data: {
-        reservedQuantity: quantityDecimal(afterReserved),
-        unit,
-        updatedById: actorId
-      },
-      select: stockItemSelect
-    });
-
-    return { stockItem, balanceBefore: beforeReserved, balanceAfter: afterReserved };
-  }
-
-  private async shipQuantity(
-    tx: Prisma.TransactionClient,
-    warehouseId: string,
-    productVariantId: string,
-    quantity: number,
-    reservedToConsume: number,
-    actorId: string,
-    unit: string
-  ) {
-    const item = await this.getOrCreateStockItem(tx, warehouseId, productVariantId, actorId, unit);
-    const before = decimalToNumber(item.quantity);
-    const beforeReserved = decimalToNumber(item.reservedQuantity);
-    const available = calculateAvailableStock(before, beforeReserved);
-    const unreservedToShip = roundQuantity(quantity - reservedToConsume);
-
-    if (quantity > before) {
-      throw new BadRequestException("Cannot ship more than physical stock");
-    }
-
-    if (reservedToConsume > beforeReserved) {
-      throw new BadRequestException("Cannot ship more than reserved stock");
-    }
-
-    if (unreservedToShip > available) {
-      throw new BadRequestException("Cannot ship more than reserved or available stock");
-    }
-
-    const after = roundQuantity(before - quantity);
-    const reservedAfter = roundQuantity(beforeReserved - reservedToConsume);
-
-    if (after < reservedAfter) {
-      throw new BadRequestException("Shipment would leave reserved stock above physical quantity");
-    }
-
-    const stockItem = await tx.stockItem.update({
-      where: { id: item.id },
-      data: {
-        quantity: quantityDecimal(after),
-        reservedQuantity: quantityDecimal(reservedAfter),
         unit,
         updatedById: actorId
       },
@@ -850,210 +561,6 @@ export class WarehouseService {
     return variant;
   }
 
-  private async requireOrderForStock(tx: Prisma.TransactionClient, orderId: string) {
-    const order = await tx.order.findFirst({
-      where: { id: orderId, deletedAt: null },
-      select: orderForStockSelect
-    });
-
-    if (!order) {
-      throw new NotFoundException("Order not found");
-    }
-
-    if (order.items.length === 0) {
-      throw new BadRequestException("Order has no items");
-    }
-
-    if (stockLockedOrderStatuses.includes(order.status)) {
-      throw new BadRequestException(`Cannot move stock for order in ${order.status} status`);
-    }
-
-    return order;
-  }
-
-  private async resolveOrderLines(
-    order: OrderForStockPayload,
-    requestedItems?: StockLineDto[]
-  ) {
-    const sourceLines = requestedItems?.length
-      ? requestedItems
-      : order.items.map((item) => {
-          if (!item.variantId) {
-            throw new BadRequestException(`Order item ${item.id} has no product variant`);
-          }
-
-          return {
-            productVariantId: item.variantId,
-            quantity: decimalToNumber(item.quantity),
-            unit: item.unit,
-            note: undefined
-          };
-        });
-    const orderQuantities = new Map<string, number>();
-
-    for (const item of order.items) {
-      if (item.variantId) {
-        orderQuantities.set(item.variantId, roundQuantity((orderQuantities.get(item.variantId) ?? 0) + decimalToNumber(item.quantity)));
-      }
-    }
-
-    const lines = new Map<string, StockLineDto>();
-
-    for (const line of sourceLines) {
-      if (line.quantity <= 0) {
-        throw new BadRequestException("Stock operation quantity must be greater than zero");
-      }
-
-      const orderedQuantity = orderQuantities.get(line.productVariantId);
-
-      if (!orderedQuantity) {
-        throw new BadRequestException("Stock operation item is not present in order");
-      }
-
-      const existing = lines.get(line.productVariantId);
-      const nextQuantity = roundQuantity((existing?.quantity ?? 0) + line.quantity);
-
-      if (nextQuantity > orderedQuantity) {
-        throw new BadRequestException("Stock operation quantity exceeds order item quantity");
-      }
-
-      lines.set(line.productVariantId, {
-        productVariantId: line.productVariantId,
-        quantity: nextQuantity,
-        unit: line.unit ?? existing?.unit,
-        note: line.note ?? existing?.note
-      });
-    }
-
-    return [...lines.values()];
-  }
-
-  private orderQuantities(order: OrderForStockPayload) {
-    const quantities = new Map<string, number>();
-
-    for (const item of order.items) {
-      if (item.variantId) {
-        quantities.set(item.variantId, roundQuantity((quantities.get(item.variantId) ?? 0) + decimalToNumber(item.quantity)));
-      }
-    }
-
-    return quantities;
-  }
-
-  private async getOrderMovementBalances(tx: Prisma.TransactionClient, orderId: string) {
-    const movements = await tx.stockMovement.findMany({
-      where: {
-        orderId,
-        deletedAt: null,
-        type: {
-          in: [StockMovementType.RESERVATION, StockMovementType.RELEASE_RESERVATION, StockMovementType.SHIPMENT]
-        }
-      },
-      select: {
-        type: true,
-        variantId: true,
-        quantity: true
-      },
-      orderBy: { createdAt: "asc" }
-    });
-    const balances = new Map<string, OrderStockBalance>();
-
-    for (const movement of movements) {
-      if (!movement.variantId) {
-        continue;
-      }
-
-      const current = balances.get(movement.variantId) ?? { reserved: 0, shipped: 0 };
-      const quantity = decimalToNumber(movement.quantity);
-
-      if (movement.type === StockMovementType.RESERVATION) {
-        current.reserved = roundQuantity(current.reserved + quantity);
-      } else if (movement.type === StockMovementType.RELEASE_RESERVATION) {
-        current.reserved = roundQuantity(Math.max(0, current.reserved - quantity));
-      } else if (movement.type === StockMovementType.SHIPMENT) {
-        current.shipped = roundQuantity(current.shipped + quantity);
-        current.reserved = roundQuantity(Math.max(0, current.reserved - quantity));
-      }
-
-      balances.set(movement.variantId, current);
-    }
-
-    return balances;
-  }
-
-  private async ensureOrderWarehouse(
-    tx: Prisma.TransactionClient,
-    order: OrderForStockPayload,
-    warehouseId: string,
-    actorId: string
-  ) {
-    if (order.warehouseId && order.warehouseId !== warehouseId) {
-      throw new BadRequestException("Order is assigned to another warehouse");
-    }
-
-    if (!order.warehouseId) {
-      await tx.order.update({
-        where: { id: order.id },
-        data: {
-          warehouseId,
-          updatedById: actorId
-        }
-      });
-      order.warehouseId = warehouseId;
-    }
-  }
-
-  private async setOrderStatusIfNeeded(
-    tx: Prisma.TransactionClient,
-    order: OrderForStockPayload,
-    status: OrderStatus,
-    actorId: string,
-    comment: string
-  ) {
-    if (stockLockedOrderStatuses.includes(order.status)) {
-      return;
-    }
-
-    if (order.status === status) {
-      await tx.timelineEvent.create({
-        data: {
-          orderId: order.id,
-          actorId,
-          type: TimelineEventType.STOCK_MOVED,
-          title: comment
-        }
-      });
-      return;
-    }
-
-    await tx.order.update({
-      where: { id: order.id },
-      data: {
-        status,
-        ...(status === OrderStatus.SHIPPED ? { shippedAt: new Date() } : {}),
-        updatedById: actorId
-      }
-    });
-    await tx.orderStatusHistory.create({
-      data: {
-        orderId: order.id,
-        previousStatus: order.status,
-        status,
-        comment,
-        changedById: actorId
-      }
-    });
-    await tx.timelineEvent.create({
-      data: {
-        orderId: order.id,
-        actorId,
-        type: TimelineEventType.STOCK_MOVED,
-        title: comment,
-        description: `Order status changed to ${status}`
-      }
-    });
-  }
-
   private createMovement(
     tx: Prisma.TransactionClient,
     input: {
@@ -1061,7 +568,6 @@ export class WarehouseService {
       stockItem: { stockItem: StockItemPayload };
       quantity: number;
       actorId: string;
-      orderId?: string;
       reference?: string;
       note?: string;
       balanceBefore: number;
@@ -1075,7 +581,6 @@ export class WarehouseService {
         stockItemId: input.stockItem.stockItem.id,
         productId: input.stockItem.stockItem.productId,
         variantId: input.stockItem.stockItem.variantId,
-        orderId: input.orderId,
         quantity: quantityDecimal(input.quantity),
         unit: input.stockItem.stockItem.unit,
         balanceBefore: quantityDecimal(input.balanceBefore),

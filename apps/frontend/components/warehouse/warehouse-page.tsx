@@ -6,7 +6,7 @@ import { ArrowRight, Loader2, Save, Trash2 } from "lucide-react";
 import { PermissionGate } from "@/components/auth/permission-gate";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useToast } from "@/components/toast/toast-provider";
-import type { OrdersResponse, Warehouse, WarehousesResponse } from "@/components/warehouse/warehouse-types";
+import type { Warehouse, WarehousesResponse } from "@/components/warehouse/warehouse-types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,25 +21,13 @@ const emptyWarehouseForm = {
   isActive: true
 };
 
-type OrderOperation = "reserve" | "release" | "ship";
-
-const emptyOrderOperationForm = {
-  operation: "reserve" as OrderOperation,
-  orderId: "",
-  warehouseId: "",
-  note: ""
-};
-
 export function WarehousePage() {
   const auth = useAuth();
   const { toast } = useToast();
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [orders, setOrders] = useState<OrdersResponse["data"]>([]);
   const [form, setForm] = useState(emptyWarehouseForm);
-  const [operationForm, setOperationForm] = useState(emptyOrderOperationForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [runningOperation, setRunningOperation] = useState(false);
   const canManage = auth.hasPermission("warehouse.manage");
 
   const load = useCallback(async () => {
@@ -50,22 +38,8 @@ export function WarehousePage() {
     setLoading(true);
 
     try {
-      const [warehousesResponse, ordersResponse] = await Promise.allSettled([
-        auth.api.request<WarehousesResponse>("/warehouses"),
-        auth.api.request<OrdersResponse>("/orders?limit=100")
-      ]);
-
-      if (warehousesResponse.status === "fulfilled") {
-        setWarehouses(warehousesResponse.value.warehouses);
-        setOperationForm((current) => ({
-          ...current,
-          warehouseId: current.warehouseId || warehousesResponse.value.warehouses[0]?.id || ""
-        }));
-      }
-
-      if (ordersResponse.status === "fulfilled") {
-        setOrders(ordersResponse.value.data);
-      }
+      const response = await auth.api.request<WarehousesResponse>("/warehouses");
+      setWarehouses(response.warehouses);
     } catch (error) {
       toast({ title: "Unable to load warehouse data", description: error instanceof Error ? error.message : undefined, variant: "error" });
     } finally {
@@ -108,42 +82,13 @@ export function WarehousePage() {
     }
   }
 
-  async function runOrderOperation(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setRunningOperation(true);
-
-    const endpointByOperation = {
-      reserve: "/warehouse/reserve",
-      release: "/warehouse/release-reservation",
-      ship: "/warehouse/ship-order"
-    } as const;
-    const endpoint = endpointByOperation[operationForm.operation];
-
-    try {
-      await auth.api.request(endpoint, {
-        method: "POST",
-        body: JSON.stringify(cleanPayload({
-          orderId: operationForm.orderId,
-          warehouseId: operationForm.warehouseId,
-          note: operationForm.note
-        }))
-      });
-      toast({ title: "Stock operation completed", variant: "success" });
-      await load();
-    } catch (error) {
-      toast({ title: "Operation failed", description: error instanceof Error ? error.message : undefined, variant: "error" });
-    } finally {
-      setRunningOperation(false);
-    }
-  }
-
   return (
     <PermissionGate permission="warehouse.read">
       <main className="space-y-4 p-4 sm:p-6">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <h2 className="text-2xl font-semibold tracking-normal">Warehouse</h2>
-            <p className="text-sm text-muted-foreground">Warehouses, stock availability, and order stock operations.</p>
+            <p className="text-sm text-muted-foreground">Warehouses, stock availability, and inventory operations.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
@@ -197,9 +142,9 @@ export function WarehousePage() {
                           </div>
                           <Badge variant={warehouse.isActive ? "success" : "secondary"}>{warehouse.isActive ? "Active" : "Inactive"}</Badge>
                         </div>
-                        <div className="mt-3 grid gap-2 text-sm text-muted-foreground">
+                          <div className="mt-3 grid gap-2 text-sm text-muted-foreground">
                           <div>{warehouse.address ?? "No address"}</div>
-                          <div>{warehouse._count?.stockItems ?? 0} stock items / {warehouse._count?.orders ?? 0} orders</div>
+                          <div>{warehouse._count?.stockItems ?? 0} stock items</div>
                           <div>Manager: {warehouse.manager?.name ?? "-"}</div>
                         </div>
                         {canManage ? (
@@ -244,62 +189,6 @@ export function WarehousePage() {
                 </Card>
               ) : null}
             </div>
-
-            {canManage ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Order stock operation</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <form className="grid gap-3 md:grid-cols-[180px_1fr_1fr_1fr_auto]" onSubmit={runOrderOperation}>
-                    <select
-                      className="h-10 rounded-md border bg-background px-3 text-sm"
-                      value={operationForm.operation}
-                      onChange={(event) => setOperationForm((current) => ({ ...current, operation: event.target.value as OrderOperation }))}
-                    >
-                      <option value="reserve">Reserve</option>
-                      <option value="release">Release reservation</option>
-                      <option value="ship">Ship order</option>
-                    </select>
-                    <select
-                      required
-                      className="h-10 rounded-md border bg-background px-3 text-sm"
-                      value={operationForm.orderId}
-                      onChange={(event) => setOperationForm((current) => ({ ...current, orderId: event.target.value }))}
-                    >
-                      <option value="">Select order</option>
-                      {orders.map((order) => (
-                        <option key={order.id} value={order.id}>
-                          {order.number} / {order.customer?.name ?? "-"} / {order.status}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      required
-                      className="h-10 rounded-md border bg-background px-3 text-sm"
-                      value={operationForm.warehouseId}
-                      onChange={(event) => setOperationForm((current) => ({ ...current, warehouseId: event.target.value }))}
-                    >
-                      <option value="">Select warehouse</option>
-                      {warehouses.map((warehouse) => (
-                        <option key={warehouse.id} value={warehouse.id}>
-                          {warehouse.code} / {warehouse.name}
-                        </option>
-                      ))}
-                    </select>
-                    <Input
-                      placeholder="Note"
-                      value={operationForm.note}
-                      onChange={(event) => setOperationForm((current) => ({ ...current, note: event.target.value }))}
-                    />
-                    <Button disabled={runningOperation} type="submit">
-                      {runningOperation ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                      Run
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-            ) : null}
           </>
         )}
       </main>

@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 
 const statuses: Array<TaskStatus | ""> = ["", "TODO", "IN_PROGRESS", "DONE", "CANCELLED"];
 const priorities: Array<TaskPriority | ""> = ["", "LOW", "MEDIUM", "HIGH", "URGENT"];
-const relatedTypes: Array<TaskRelatedType | ""> = ["", "CUSTOMER", "LEAD", "ORDER", "PRODUCT"];
+const relatedTypes: Array<TaskRelatedType | ""> = ["", "PRODUCT"];
 
 const emptyTaskForm = {
   title: "",
@@ -386,18 +386,6 @@ function taskPayload(form: TaskFormState) {
 }
 
 function relatedLabel(task: Task) {
-  if (task.customer) {
-    return `Customer: ${task.customer.companyName || task.customer.name}`;
-  }
-
-  if (task.lead) {
-    return `Lead: ${task.lead.title || task.lead.name || task.relatedId}`;
-  }
-
-  if (task.order) {
-    return `Order: ${task.order.number}`;
-  }
-
   if (task.product) {
     return `Product: ${task.product.sku} ${task.product.name}`;
   }

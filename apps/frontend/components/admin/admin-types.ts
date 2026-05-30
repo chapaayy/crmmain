@@ -45,11 +45,6 @@ export interface AdminUser {
 export interface SettingsPayload {
   companyProfile: Record<string, string>;
   requisites: Record<string, string>;
-  documentNumbering: Record<string, string | number | boolean>;
-  leadSources: string[];
-  orderStatuses: string[];
-  paymentMethods: string[];
-  deliveryMethods: string[];
 }
 
 export interface AuditLog {

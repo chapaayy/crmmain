@@ -1,8 +1,8 @@
-import type { PaginationMeta, UserSummary } from "@/components/customers/crm-types";
+import type { PaginationMeta, UserSummary } from "@/lib/shared-types";
 
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "CANCELLED";
 export type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-export type TaskRelatedType = "CUSTOMER" | "LEAD" | "ORDER" | "PRODUCT";
+export type TaskRelatedType = "PRODUCT";
 
 export interface Task {
   id: string;
@@ -17,20 +17,6 @@ export interface Task {
   createdById?: string | null;
   assignedTo?: UserSummary | null;
   createdBy?: UserSummary | null;
-  customer?: {
-    id: string;
-    name: string;
-    companyName?: string | null;
-  } | null;
-  lead?: {
-    id: string;
-    title?: string | null;
-    name?: string | null;
-  } | null;
-  order?: {
-    id: string;
-    number: string;
-  } | null;
   product?: {
     id: string;
     sku: string;

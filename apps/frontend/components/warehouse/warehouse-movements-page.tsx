@@ -14,9 +14,6 @@ import { Input } from "@/components/ui/input";
 const movementTypes: StockMovementType[] = [
   "RECEIPT",
   "SALE",
-  "RESERVATION",
-  "RELEASE_RESERVATION",
-  "SHIPMENT",
   "RETURN",
   "ADJUSTMENT",
   "TRANSFER",
@@ -88,7 +85,7 @@ export function WarehouseMovementsPage() {
       <main className="p-4 sm:p-6">
         <div className="mb-6">
           <h2 className="text-2xl font-semibold tracking-normal">Stock movements</h2>
-          <p className="text-sm text-muted-foreground">Every receipt, reservation, release, shipment, adjustment, and writeoff.</p>
+          <p className="text-sm text-muted-foreground">Every receipt, adjustment, transfer, return, and writeoff in the warehouse journal.</p>
         </div>
         <Card>
           <CardHeader>
@@ -98,7 +95,7 @@ export function WarehouseMovementsPage() {
             <div className="grid gap-3 lg:grid-cols-6">
               <div className="relative lg:col-span-2">
                 <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input className="pl-9" placeholder="Search reference, product, order" value={filters.search} onChange={(event) => updateFilter("search", event.target.value)} />
+                <Input className="pl-9" placeholder="Search reference or product" value={filters.search} onChange={(event) => updateFilter("search", event.target.value)} />
               </div>
               <select className="h-10 rounded-md border bg-background px-3 text-sm" value={filters.warehouseId} onChange={(event) => updateFilter("warehouseId", event.target.value)}>
                 <option value="">All warehouses</option>
@@ -127,7 +124,7 @@ export function WarehouseMovementsPage() {
                     <th className="px-4 py-3 font-medium">Product</th>
                     <th className="px-4 py-3 font-medium">Warehouse</th>
                     <th className="px-4 py-3 font-medium">Quantity</th>
-                    <th className="px-4 py-3 font-medium">Order</th>
+                    <th className="px-4 py-3 font-medium">Reference</th>
                     <th className="px-4 py-3 font-medium">Date</th>
                   </tr>
                 </thead>
@@ -155,7 +152,7 @@ export function WarehouseMovementsPage() {
                         </td>
                         <td className="px-4 py-3">{movement.warehouse.code}</td>
                         <td className="px-4 py-3">{formatQuantity(movement.quantity)} {movement.unit}</td>
-                        <td className="px-4 py-3">{movement.order?.number ?? movement.reference ?? "-"}</td>
+                        <td className="px-4 py-3">{movement.reference ?? "-"}</td>
                         <td className="px-4 py-3 text-muted-foreground">{new Date(movement.createdAt).toLocaleString()}</td>
                       </tr>
                     ))
@@ -172,11 +169,11 @@ export function WarehouseMovementsPage() {
 }
 
 function movementVariant(type: StockMovementType): "success" | "warning" | "secondary" {
-  if (type === "RECEIPT" || type === "RETURN" || type === "RELEASE_RESERVATION") {
+  if (type === "RECEIPT" || type === "RETURN") {
     return "success";
   }
 
-  if (type === "WRITEOFF" || type === "SHIPMENT") {
+  if (type === "WRITEOFF") {
     return "warning";
   }
 

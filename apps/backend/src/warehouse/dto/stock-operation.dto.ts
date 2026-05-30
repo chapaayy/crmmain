@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsArray, IsNumber, IsOptional, IsString, Min, MinLength, ValidateNested } from "class-validator";
+import { IsNumber, IsOptional, IsString, Min, MinLength } from "class-validator";
 
 export class StockLineDto {
   @IsString()
@@ -57,27 +57,3 @@ export class StockAdjustDto {
 }
 
 export class StockWriteoffDto extends StockReceiptDto {}
-
-export class OrderStockOperationDto {
-  @IsString()
-  @MinLength(1)
-  orderId!: string;
-
-  @IsString()
-  @MinLength(1)
-  warehouseId!: string;
-
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => StockLineDto)
-  items?: StockLineDto[];
-
-  @IsOptional()
-  @IsString()
-  reference?: string;
-
-  @IsOptional()
-  @IsString()
-  note?: string;
-}

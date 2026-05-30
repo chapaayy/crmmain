@@ -22,34 +22,7 @@ const defaultSettings = {
     bik: "",
     account: "",
     correspondentAccount: ""
-  },
-  documentNumbering: {
-    orderPrefix: "ORD",
-    invoicePrefix: "INV",
-    commercialOfferPrefix: "CO",
-    deliveryNotePrefix: "DN",
-    actPrefix: "ACT",
-    contractPrefix: "CON",
-    startFrom: 1,
-    yearlyReset: true
-  },
-  leadSources: ["Website", "Phone", "Referral", "Repeat customer", "Marketplace"],
-  orderStatuses: [
-    "DRAFT",
-    "NEW",
-    "MANAGER_PROCESSING",
-    "WAITING_PAYMENT",
-    "PAID",
-    "RESERVED",
-    "PICKING",
-    "SHIPPED",
-    "DELIVERED",
-    "COMPLETED",
-    "CANCELLED",
-    "REFUNDED"
-  ],
-  paymentMethods: ["BANK_TRANSFER", "CASH", "CARD", "ONLINE", "OTHER"],
-  deliveryMethods: ["Pickup", "Courier", "Transport company", "Rail", "Custom"]
+  }
 };
 
 type SettingsKey = keyof typeof defaultSettings;

@@ -1,5 +1,7 @@
 import { TaskPriority, TaskRelatedType, TaskStatus } from "@prisma/client";
-import { IsDateString, IsEnum, IsOptional, IsString, MinLength } from "class-validator";
+import { IsDateString, IsEnum, IsIn, IsOptional, IsString, MinLength } from "class-validator";
+
+const supportedTaskRelatedTypes = [TaskRelatedType.PRODUCT];
 
 export class CreateTaskDto {
   @IsString()
@@ -31,7 +33,7 @@ export class CreateTaskDto {
   creatorId?: string;
 
   @IsOptional()
-  @IsEnum(TaskRelatedType)
+  @IsIn(supportedTaskRelatedTypes)
   relatedType?: TaskRelatedType;
 
   @IsOptional()
@@ -66,7 +68,7 @@ export class UpdateTaskDto {
   assigneeId?: string;
 
   @IsOptional()
-  @IsEnum(TaskRelatedType)
+  @IsIn(supportedTaskRelatedTypes)
   relatedType?: TaskRelatedType;
 
   @IsOptional()

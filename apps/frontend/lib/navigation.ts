@@ -2,24 +2,18 @@ import {
   BarChart3,
   CalendarClock,
   ClipboardCheck,
-  ClipboardList,
   Clock3,
-  FileText,
   HandCoins,
   Home,
   KeyRound,
-  Landmark,
-  LayoutList,
   ListChecks,
   Package,
-  Percent,
   ReceiptText,
   ScrollText,
   Settings,
   ShieldCheck,
   UserCog,
   UserRoundCheck,
-  Users,
   Warehouse
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -47,27 +41,15 @@ export const menuItems: MenuItem[] = [
   { label: "Главная", href: "/home", icon: Home, group: "overview" },
   { label: "Аналитика", href: "/dashboard", permission: "analytics.read", icon: BarChart3, group: "overview" },
 
-  { label: "Заказы", href: "/orders", permission: "orders.read", icon: ClipboardList, group: "crm" },
-  { label: "Клиенты", href: "/customers", permission: "customers.read", icon: Users, group: "crm" },
-  { label: "Лиды", href: "/leads", permission: "leads.read", icon: LayoutList, group: "crm" },
   { label: "Товары", href: "/products", permission: "products.read", icon: Package, group: "crm" },
   { label: "Склад", href: "/warehouse", permission: "warehouse.read", icon: Warehouse, group: "crm" },
 
-  { label: "Оплаты", href: "/payments", permission: "payments.read", icon: Landmark, group: "finance" },
-  { label: "Документы", href: "/documents", permission: "documents.read", icon: FileText, group: "finance" },
   { label: "Зарплата", href: "/payroll", permission: ["payroll.read", "payroll.manage"], icon: HandCoins, group: "finance" },
   {
     label: "Бонусы / штрафы",
     href: "/payroll/adjustments",
     permission: ["payroll.read", "payroll.manage"],
     icon: ReceiptText,
-    group: "finance"
-  },
-  {
-    label: "Правила комиссий",
-    href: "/payroll/commission-rules",
-    permission: ["salary_rules.read", "salary_rules.manage"],
-    icon: Percent,
     group: "finance"
   },
 
