@@ -26,6 +26,7 @@ import { formatDate, formatDateTime, formatMoney, formatNumber } from "@/compone
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { RoleBadge } from "@/components/ui/role-badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { MetricCard } from "@/components/workspace/metric-card";
 import { PageHeader } from "@/components/workspace/page-header";
@@ -238,7 +239,11 @@ function MyHomeHeader({
               <div className="text-sm text-muted-foreground">Добро пожаловать,</div>
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <h2 className="truncate text-2xl font-semibold">{employeeName}</h2>
-                {employee ? <EmployeeStatusBadge employee={employee} /> : <Badge variant="outline">{user.primaryRole ?? "USER"}</Badge>}
+                {employee ? (
+                  <EmployeeStatusBadge employee={employee} />
+                ) : (
+                  <RoleBadge roleInfo={user.roles?.find((role) => role.code === user.primaryRole) ?? user.primaryRole ?? "USER"} />
+                )}
               </div>
               <div className="mt-1 flex flex-wrap gap-2 text-sm text-muted-foreground">
                 <span>{employee?.position ?? "Должность не указана"}</span>

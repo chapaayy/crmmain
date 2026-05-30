@@ -20,6 +20,7 @@ const userSummarySelect = {
           id: true,
           code: true,
           name: true,
+          color: true,
           deletedAt: true,
           permissions: {
             where: { deletedAt: null },
@@ -501,7 +502,7 @@ function hasAnyPermission(access: { isSuperAdmin: boolean; permissions: Set<stri
 function serializeUser(user: UserSummary) {
   const roles = user.roles
     .filter(({ role }) => !role.deletedAt)
-    .map(({ role }) => ({ id: role.id, code: role.code, name: role.name }));
+    .map(({ role }) => ({ id: role.id, code: role.code, name: role.name, color: role.color }));
   const permissions = new Map<string, { id: string; key: string; name: string; resource: string; action: string }>();
 
   for (const { role } of user.roles) {

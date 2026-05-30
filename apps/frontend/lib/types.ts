@@ -10,6 +10,7 @@ export interface Role {
   id: string;
   code: string;
   name: string;
+  color?: string | null;
 }
 
 export interface CurrentUser {

@@ -33,6 +33,7 @@ const userSelect = {
           id: true,
           code: true,
           name: true,
+          color: true,
           description: true
         }
       }

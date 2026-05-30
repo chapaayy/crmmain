@@ -169,6 +169,7 @@ export class AuthService {
                 id: true,
                 code: true,
                 name: true,
+                color: true,
                 permissions: {
                   where: { deletedAt: null },
                   select: {
@@ -194,7 +195,8 @@ export class AuthService {
     const roles = user.roles.map(({ role }) => ({
       id: role.id,
       code: role.code,
-      name: role.name
+      name: role.name,
+      color: role.color
     }));
     const permissionMap = new Map<
       string,

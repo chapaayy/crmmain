@@ -6,9 +6,9 @@ import { usePathname } from "next/navigation";
 import { Check, ChevronDown, Languages, LogOut, Menu, Search, ShieldCheck, UserCircle, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { NotificationBell } from "@/components/notifications/notification-bell";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RoleBadge } from "@/components/ui/role-badge";
 import { localeLabels, supportedLocales } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n";
 import { menuItems } from "@/lib/navigation";
@@ -67,10 +67,19 @@ export function Topbar({
 
         <MobileQuickNav items={visibleItems} pathname={pathname} />
 
-        <Badge variant="secondary" className="hidden max-w-[12rem] gap-1.5 truncate md:inline-flex">
-          <ShieldCheck className="h-3.5 w-3.5" />
-          {auth.user?.primaryRole ?? auth.user?.role ?? "USER"}
-        </Badge>
+        <div className="hidden max-w-[14rem] md:block">
+          <RoleBadge
+            roleInfo={
+              auth.user?.roles?.find((role) => role.code === (auth.user?.primaryRole ?? auth.user?.role)) ??
+              auth.user?.primaryRole ??
+              auth.user?.role ??
+              "USER"
+            }
+            className="inline-flex w-full items-center gap-1.5 truncate"
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
+          </RoleBadge>
+        </div>
 
         <NotificationBell />
         <LanguageMenu />

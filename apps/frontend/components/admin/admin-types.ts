@@ -14,6 +14,7 @@ export interface AdminRole {
   id: string;
   code: string;
   name: string;
+  color?: string | null;
   description?: string | null;
   isSystem?: boolean;
   permissions?: AdminPermission[];

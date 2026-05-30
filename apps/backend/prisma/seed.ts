@@ -93,6 +93,28 @@ const roleDescriptions: Record<RoleCode, string> = {
   VIEWER: "Read-only access to operational data."
 };
 
+const roleDisplayNames: Record<RoleCode, string> = {
+  SUPER_ADMIN: "Главный администратор",
+  ADMIN: "Администратор",
+  HR_MANAGER: "HR-менеджер",
+  PAYROLL_MANAGER: "Менеджер зарплаты",
+  SALES_MANAGER: "Менеджер продаж",
+  WAREHOUSE_MANAGER: "Менеджер склада",
+  ACCOUNTANT: "Бухгалтер",
+  VIEWER: "Наблюдатель"
+};
+
+const roleColors: Record<RoleCode, string> = {
+  SUPER_ADMIN: "#22D3EE",
+  ADMIN: "#14B8A6",
+  HR_MANAGER: "#8B5CF6",
+  PAYROLL_MANAGER: "#F59E0B",
+  SALES_MANAGER: "#38BDF8",
+  WAREHOUSE_MANAGER: "#10B981",
+  ACCOUNTANT: "#F97316",
+  VIEWER: "#94A3B8"
+};
+
 const defaultProductCategories = [
   ["meshki-polipropilenovye", "мешки полипропиленовые"],
   ["meshki-dlya-musora", "мешки для мусора"],
@@ -282,14 +304,14 @@ async function seedRoles() {
     const role = await prisma.role.upsert({
       where: { code },
       update: {
-        name: code,
         description: roleDescriptions[code],
         isSystem: true,
         deletedAt: null
       },
       create: {
         code,
-        name: code,
+        name: roleDisplayNames[code],
+        color: roleColors[code],
         description: roleDescriptions[code],
         isSystem: true
       }

@@ -356,6 +356,7 @@ model Role {
   id          String           @id @default(cuid())
   code        RoleCode         @unique
   name        String           @unique
+  color       String           @default("#22D3EE")
   description String?
   isSystem    Boolean          @default(false)
   createdById String?

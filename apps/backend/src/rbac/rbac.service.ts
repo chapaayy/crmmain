@@ -50,6 +50,7 @@ export class RbacService {
         id: role.id,
         code: role.code,
         name: role.name,
+        color: role.color,
         description: role.description,
         isSystem: role.isSystem,
         createdAt: role.createdAt,
@@ -75,6 +76,7 @@ export class RbacService {
         where: { code: dto.code },
         update: {
           name: dto.name,
+          color: dto.color,
           description: dto.description,
           isSystem: dto.isSystem ?? false,
           updatedById: actorId,
@@ -83,6 +85,7 @@ export class RbacService {
         create: {
           code: dto.code,
           name: dto.name,
+          color: dto.color,
           description: dto.description,
           isSystem: dto.isSystem ?? false,
           createdById: actorId,
@@ -374,6 +377,7 @@ export class RbacService {
         id: role.id,
         code: role.code,
         name: role.name,
+        color: role.color,
         permissions: role.permissions
           .filter(({ permission }) => !permission.deletedAt)
           .map(({ permission }) => permission)
