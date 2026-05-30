@@ -30,16 +30,10 @@ export function Topbar({
   const title = useMemo(() => getCurrentTitle(pathname), [pathname]);
   const visibleItems = getVisibleMenuItems(auth);
   const crumbs = title === "Главная" ? ["Обзор", title] : ["CRM Мешки", title];
-  const hidden = useHeaderHeadroom();
 
   return (
-    <header
-      className={cn(
-        "sticky top-0 z-30 border-b border-transparent bg-transparent backdrop-blur-sm transition-transform duration-500 crm-panel-motion will-change-transform",
-        hidden && "-translate-y-[calc(100%+1px)]"
-      )}
-    >
-      <div className="flex h-16 items-center gap-3 px-4 sm:px-5 xl:px-6">
+    <header className="sticky top-0 z-50 border-b border-border/70 bg-background/80 backdrop-blur-xl">
+      <div className="flex h-14 items-center gap-3 px-4 sm:px-5 xl:px-6">
         <Button aria-label="Открыть меню" className="lg:hidden" size="icon" type="button" variant="outline" onClick={onOpenSidebar}>
           <Menu className="h-4 w-4" />
         </Button>
@@ -63,7 +57,7 @@ export function Topbar({
               </span>
             ))}
           </div>
-          <h1 className="mt-0.5 truncate text-lg font-semibold tracking-normal text-foreground">{title}</h1>
+          <h1 className="mt-0.5 truncate text-base font-semibold tracking-normal text-foreground">{title}</h1>
         </div>
 
         <div className="relative hidden w-full max-w-sm xl:block">
@@ -84,46 +78,6 @@ export function Topbar({
       </div>
     </header>
   );
-}
-
-function useHeaderHeadroom() {
-  const [hidden, setHidden] = useState(false);
-
-  useEffect(() => {
-    let lastY = window.scrollY;
-    let ticking = false;
-
-    const update = () => {
-      const currentY = window.scrollY;
-      const delta = currentY - lastY;
-
-      if (currentY < 48) {
-        setHidden(false);
-      } else if (delta > 10 && currentY > 140) {
-        setHidden(true);
-      } else if (delta < -8) {
-        setHidden(false);
-      }
-
-      lastY = currentY;
-      ticking = false;
-    };
-
-    const onScroll = () => {
-      if (ticking) {
-        return;
-      }
-
-      ticking = true;
-      window.requestAnimationFrame(update);
-    };
-
-    window.addEventListener("scroll", onScroll, { passive: true });
-
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  return hidden;
 }
 
 function MobileQuickNav({ items, pathname }: { items: ReturnType<typeof getVisibleMenuItems>; pathname: string }) {
