@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RoleBadge } from "@/components/ui/role-badge";
-import { getRoleDisplayName } from "@/lib/roles";
+import { getDisplayRole, getRoleDisplayName } from "@/lib/roles";
 
 interface RolesResponse {
   roles: AdminRole[];
@@ -145,7 +145,7 @@ export function UsersAdmin() {
                             <div className="text-xs text-muted-foreground">{user.email}</div>
                           </td>
                           <td className="px-4 py-3">
-                            <RoleBadge roleInfo={user.roles?.find((role) => role.code === user.primaryRole) ?? user.primaryRole} />
+                            <RoleBadge roleInfo={getDisplayRole(user.roles, user.primaryRole)} />
                           </td>
                           <td className="px-4 py-3">
                             <Badge variant={user.isActive ? "success" : "warning"}>{user.isActive ? "Active" : "Blocked"}</Badge>

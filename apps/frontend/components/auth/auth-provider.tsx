@@ -18,6 +18,7 @@ interface AuthContextValue {
   locale: Locale;
   api: ApiClient;
   bootstrap: () => Promise<boolean>;
+  refreshCurrentUser: () => Promise<CurrentUser | null>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   logoutAll: () => Promise<void>;
@@ -141,6 +142,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }),
     [apiBaseUrl, refreshAccessToken]
   );
+
+  const refreshCurrentUser = useCallback(async () => {
+    if (!accessTokenRef.current) {
+      return null;
+    }
+
+    return fetchMe(accessTokenRef.current);
+  }, [fetchMe]);
 
   const bootstrap = useCallback(async () => {
     if (accessTokenRef.current && user) {
@@ -316,13 +325,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       locale,
       api,
       bootstrap,
+      refreshCurrentUser,
       login,
       logout,
       logoutAll,
       updateLocale,
       hasPermission
     }),
-    [api, bootstrap, hasPermission, locale, login, logout, logoutAll, status, updateLocale, user]
+    [api, bootstrap, hasPermission, locale, login, logout, logoutAll, refreshCurrentUser, status, updateLocale, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

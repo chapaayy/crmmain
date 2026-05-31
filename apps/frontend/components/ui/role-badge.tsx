@@ -19,7 +19,7 @@ export function RoleBadge({ roleInfo, className, style, ...props }: RoleBadgePro
   return (
     <Badge
       variant="outline"
-      className={cn("max-w-full truncate normal-case tracking-[0.02em]", className)}
+      className={cn("max-w-full truncate text-foreground normal-case tracking-[0.02em]", className)}
       style={{ ...getRoleBadgeStyle(roleInfo), ...style }}
       {...props}
     >

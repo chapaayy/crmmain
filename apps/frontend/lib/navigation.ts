@@ -72,11 +72,11 @@ export const menuItems: MenuItem[] = [
     group: "employees"
   },
 
-  { label: "Пользователи", href: "/admin/users", permission: "users.read", icon: UserCog, adminOnly: true, group: "admin" },
-  { label: "Роли", href: "/admin/roles", permission: "roles.read", icon: ShieldCheck, adminOnly: true, group: "admin" },
+  { label: "Пользователи", href: "/admin/users", permission: "users.read", icon: UserCog, group: "admin" },
+  { label: "Роли", href: "/admin/roles", permission: "roles.read", icon: ShieldCheck, group: "admin" },
   { label: "Настройки", href: "/settings", icon: Settings, group: "admin" },
-  { label: "Настройки компании", href: "/admin/settings", permission: "settings.manage", icon: Settings, adminOnly: true, group: "admin" },
-  { label: "Журнал аудита", href: "/admin/audit-logs", permission: "audit_logs.read", icon: ScrollText, adminOnly: true, group: "admin" },
+  { label: "Настройки компании", href: "/admin/settings", permission: "settings.manage", icon: Settings, group: "admin" },
+  { label: "Журнал аудита", href: "/admin/audit-logs", permission: "audit_logs.read", icon: ScrollText, group: "admin" },
   { label: "Доступы / Vault", href: "/secrets", permission: "secrets.read_metadata", icon: KeyRound, group: "admin" }
 ];
 

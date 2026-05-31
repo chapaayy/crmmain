@@ -12,6 +12,7 @@ import { RoleBadge } from "@/components/ui/role-badge";
 import { localeLabels, supportedLocales } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n";
 import { menuItems } from "@/lib/navigation";
+import { getDisplayRole } from "@/lib/roles";
 import { useDismissibleLayer } from "@/lib/use-dismissible-layer";
 import { cn } from "@/lib/utils";
 import { getActiveHref, getVisibleMenuItems, isActive } from "./sidebar";
@@ -69,12 +70,7 @@ export function Topbar({
 
         <div className="hidden max-w-[14rem] md:block">
           <RoleBadge
-            roleInfo={
-              auth.user?.roles?.find((role) => role.code === (auth.user?.primaryRole ?? auth.user?.role)) ??
-              auth.user?.primaryRole ??
-              auth.user?.role ??
-              "USER"
-            }
+            roleInfo={getDisplayRole(auth.user?.roles, auth.user?.primaryRole ?? auth.user?.role)}
             className="inline-flex w-full items-center gap-1.5 truncate"
           >
             <ShieldCheck className="h-3.5 w-3.5" />

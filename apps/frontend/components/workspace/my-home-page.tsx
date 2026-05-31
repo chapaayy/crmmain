@@ -29,6 +29,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RoleBadge } from "@/components/ui/role-badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { MetricCard } from "@/components/workspace/metric-card";
+import { getDisplayRole } from "@/lib/roles";
 import { PageHeader } from "@/components/workspace/page-header";
 import { ErrorState, LoadingState } from "@/components/workspace/states";
 import { ApiClientError } from "@/lib/api-client";
@@ -242,7 +243,7 @@ function MyHomeHeader({
                 {employee ? (
                   <EmployeeStatusBadge employee={employee} />
                 ) : (
-                  <RoleBadge roleInfo={user.roles?.find((role) => role.code === user.primaryRole) ?? user.primaryRole ?? "USER"} />
+                  <RoleBadge roleInfo={getDisplayRole(user.roles, user.primaryRole)} />
                 )}
               </div>
               <div className="mt-1 flex flex-wrap gap-2 text-sm text-muted-foreground">

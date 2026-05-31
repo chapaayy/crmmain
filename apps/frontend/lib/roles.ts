@@ -30,6 +30,12 @@ type RoleLike =
   | null
   | undefined;
 
+type RoleRecord = {
+  code?: string | null;
+  name?: string | null;
+  color?: string | null;
+};
+
 export function getRoleCode(role: RoleLike) {
   if (typeof role === "string") {
     return role;
@@ -53,6 +59,27 @@ export function getRoleDisplayName(role: RoleLike) {
   return name;
 }
 
+export function getDisplayRole(roles: RoleRecord[] | null | undefined, primaryRole?: string | null) {
+  const assignedRoles = roles ?? [];
+  const primaryMatch = assignedRoles.find((role) => role.code === primaryRole);
+
+  if (primaryMatch && primaryMatch.code !== "VIEWER") {
+    return primaryMatch;
+  }
+
+  const firstCustomOrSpecific = assignedRoles.find((role) => role.code && role.code !== "VIEWER");
+
+  if (firstCustomOrSpecific) {
+    return firstCustomOrSpecific;
+  }
+
+  if (primaryMatch) {
+    return primaryMatch;
+  }
+
+  return primaryRole ?? assignedRoles[0] ?? "VIEWER";
+}
+
 export function normalizeRoleColor(color?: string | null, code?: string | null) {
   if (color && /^#([0-9A-Fa-f]{6})$/.test(color)) {
     return color.toUpperCase();
@@ -66,7 +93,6 @@ export function getRoleBadgeStyle(role: RoleLike) {
   const color = normalizeRoleColor(typeof role === "string" ? null : role?.color, code);
 
   return {
-    color,
     borderColor: withAlpha(color, 0.38),
     backgroundColor: withAlpha(color, 0.12),
     boxShadow: `inset 0 0 0 1px ${withAlpha(color, 0.08)}`

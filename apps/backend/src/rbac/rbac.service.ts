@@ -386,7 +386,7 @@ export class RbacService {
     };
   }
 
-  private resolvePrimaryRole(roleCodes: RoleCode[]) {
+  private resolvePrimaryRole(roleCodes: string[]) {
     return rolePriority.find((roleCode) => roleCodes.includes(roleCode)) ?? RoleCode.VIEWER;
   }
 }

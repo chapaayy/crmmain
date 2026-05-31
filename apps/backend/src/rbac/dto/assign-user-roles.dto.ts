@@ -1,5 +1,4 @@
-import { RoleCode } from "@prisma/client";
-import { ArrayNotEmpty, IsArray, IsEnum, IsOptional, IsString } from "class-validator";
+import { ArrayNotEmpty, IsArray, IsOptional, IsString, Matches } from "class-validator";
 
 export class AssignUserRolesDto {
   @IsOptional()
@@ -11,6 +10,7 @@ export class AssignUserRolesDto {
   @IsOptional()
   @IsArray()
   @ArrayNotEmpty()
-  @IsEnum(RoleCode, { each: true })
-  roleCodes?: RoleCode[];
+  @IsString({ each: true })
+  @Matches(/^[A-Z][A-Z0-9_]{1,63}$/, { each: true, message: "Role codes must use uppercase latin letters, numbers, and underscores" })
+  roleCodes?: string[];
 }
